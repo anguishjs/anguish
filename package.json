@@ -1,0 +1,21 @@
+{
+  "name": "anguishjs",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "type": "module",
+  "files": ["dist"],
+  "main": "./dist/anguish.umd.cjs",
+  "unpkg": "./dist/anguish.iife.js",
+  "jsdelivr": "./dist/anguish.iife.js",
+  "module": "./dist/anguish.js",
+  "exports": {
+    ".": {
+      "import": "./dist/anguish.js",
+      "require": "./dist/anguish.umd.cjs"
+    }
+  },
+  "devDependencies": {
+    "terser": "^5.30.3",
+    "vite": "^5.2.8"
+  }
+}

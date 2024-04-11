@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+  <body>
+    <main v-scope="{ x: 1 }">
+      <span v-text="x"></span>
+      <button @click="x++">Increment</button>
+      <button v-scope="{ pink: false }" @click="pink = !pink" v-bind:class="{ pink }">
+        pink !
+      </button>
+
+      <template v-effect="console.log('hi')"></template>
+
+      <style>.pink { color: pink }</style>
+    </main>
+
+    <script type="module" src="src/index.ts"></script>
+  </body>
+</html>

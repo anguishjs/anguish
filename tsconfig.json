@@ -1,0 +1,9 @@
+{
+  "include": ["**/*.ts"],
+  "compilerOptions": {
+    "strict": true,
+    "noEmit": true,
+    "target": "esnext",
+    "lib": ["esnext", "dom", "dom.iterable"]
+  }
+}
