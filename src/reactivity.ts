@@ -44,7 +44,7 @@ export const effect = (fn: () => void) => {
 };
 
 const queue = <(() => void)[]> [];
-export const nextTick = queueMicrotask;
+export const nextTick = (fn: () => void) => queueMicrotask(fn);
 export const queueJob = (fn: () => void) => {
   queue.push(fn);
   if (queue.length == 1) {

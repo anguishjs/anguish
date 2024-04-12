@@ -11,7 +11,7 @@ type Directive<T extends Element> = (
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
 const directives: Record<string, Directive<any>> = {
-  bind: (get, el: HTMLElement, arg) => {
+  bind(get, el: HTMLElement, arg) {
     const class_ = el.className;
     effect(() => {
       let value = get();
@@ -33,27 +33,28 @@ const directives: Record<string, Directive<any>> = {
       el.setAttribute(arg!, value);
     });
   },
-  on: (_, el: HTMLElement, arg, expr, scope) => listen(el, arg!, closure(`$event=>{${expr}}`, scope, el)()),
-  text: (get, el: HTMLElement) => effect(() => el.textContent = get()),
-  html: (get, el: HTMLElement) => effect(() => el.innerHTML = get()),
+  on(_, el: HTMLElement, arg, expr, scope) {
+    listen(el, arg!, closure(`$event=>{${expr}}`, scope, el)());
+  },
+  text(get, el: HTMLElement) {
+    effect(() => el.textContent = get());
+  },
+  html(get, el: HTMLElement) {
+    effect(() => el.innerHTML = get());
+  },
   effect: effect,
   init: nextTick,
-  show: (get, el: HTMLElement) => {
+  show(get, el: HTMLElement) {
     const display = el.style.display;
     effect(() => el.style.display = get() ? "none" : display);
   },
-  model: (get, el: HTMLInputElement, _, expr, scope) => {
-    const assign = closure(`v=>${expr}=v`, scope, el)();
+  model(get, el: HTMLInputElement, _, expr, scope) {
+    const [ev, getter] = el.type == "checkbox"
+      ? ["change", "checked"]
+      : ["input", "value"];
 
-    if (el.type == "checkbox") {
-      listen(el, "change", () => assign(el.value));
-      effect(() => el.value = get());
-    } else {
-      listen(el, "input", () => {
-          return assign(el.value);
-      });
-      effect(() => el.value = get());
-    }
+    listen(el, ev, closure(`${expr}=$el.${getter}`, scope, el));
+    effect(() => el.value = get());
   },
 };
 
@@ -72,19 +73,19 @@ const walk = (el: Element, scope: any) => {
     }
   };
 
-  if (directive("v-pre")) return;
+  if (directive("x-ignore")) return;
 
-  directive("v-cloak");
+  directive("x-cloak");
 
-  if (directive("v-scope")) {
+  if (directive("x-data")) {
     scope = reactive(closure(expr!, scope, el)(), scope);
   }
 
-  if (directive("ref")) {
+  if (directive("x-ref")) {
     scope.$refs[expr!] = el;
   }
 
-  const dirs = [...el.attributes].filter(attr => /^(v-|@|:)/.test(attr.name));
+  const dirs = [...el.attributes].filter(attr => /^(x-|@|:)/.test(attr.name));
   for (const attr of dirs) {
     let directive = attr.name;
     let expr = attr.value;
@@ -102,12 +103,12 @@ const walk = (el: Element, scope: any) => {
   }
 };
 
-const roots = [...document.querySelectorAll("[v-scope]")]
-  .filter(root => !root.matches("[v-scope] [v-scope]"));
-
 const scope = reactive({
   $refs: {},
   $nextTick: nextTick,
 });
+
+const roots = [...document.querySelectorAll("[x-data]")]
+  .filter(root => !root.matches("[x-data] [x-data]"));
 
 for (const r of roots) walk(r, scope);
