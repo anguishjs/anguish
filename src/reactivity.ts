@@ -1,28 +1,31 @@
-// @vue/reactivity, minus the 9kb bundle size.
-//
-// Not good scheduling, probably. No one will notice though....
-
 const stack = <(() => void)[]> [];
 
-export const reactive = (scope: any) => {
+export const reactive = (scope: any, parent: any = {}) => {
+  if (typeof scope != "object" || !scope) return scope;
+
   const deps: Record<string, Set<() => void>> = {};
-  for (const key in scope) deps[key] = new Set<() => void>();
+  for (const key in scope) {
+    deps[key] = new Set<() => void>();
+    scope[key] = reactive(scope[key]);
+  }
 
   return new Proxy(scope, {
-    get(target, key: string /* gaslighting */) {
+    get: (target, key: string /* gaslighting */) => {
       if (key in deps) {
-        const active = stack[0];
-        if (active) deps[key].add(active);
+        if (stack[0]) deps[key].add(stack[0]);
+        return target[key];
       }
-
-      return target[key];
+      return parent[key];
     },
-    set(target, key: string, value) {
-      target[key] = value;
-      if (key in deps) queueMicrotask(() => deps[key].forEach(dep => dep()));
-
-      return true;
+    set: (target, key: string, value) => {
+      if (key in deps) {
+        target[key] = reactive(value);
+        queueJob(() => deps[key].forEach(dep => dep()));
+        return true;
+      }
+      return Reflect.set(parent, key, value);
     },
+    has: (target, key: string) => key in target || key in parent,
   });
 };
 
@@ -37,4 +40,16 @@ export const effect = (fn: () => void) => {
   };
 
   execute();
+};
+
+const queue = <(() => void)[]> [];
+export const nextTick = queueMicrotask;
+export const queueJob = (fn: () => void) => {
+  queue.push(fn);
+  if (queue.length == 1) {
+    nextTick(() => {
+      queue.forEach(fn => fn());
+      queue.length = 0;
+    });
+  }
 };

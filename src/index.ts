@@ -1,56 +1,99 @@
-import { effect, reactive } from "./reactivity";
+import { effect, nextTick, reactive } from "./reactivity";
 
-type Directive<T extends Element> = (expr: string, scope: any, element: T, arg?: string) => void;
+type Directive<T extends Element> = (
+  get: () => any,
+  el: T,
+  arg: string | undefined,
+  expr: string,
+  scope: any,
+) => void;
+
+const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
 const directives: Record<string, Directive<any>> = {
-  bind: (expr, scope, el, arg) => {
-    const get = closure(expr, scope, el);
+  bind: (get, el: HTMLElement, arg) => {
+    const class_ = el.className;
     effect(() => {
       let value = get();
-      if (arg == "class" && typeof value != "string") {
-        value = Object.entries(value).flatMap(([k, v]) => v ? [k] : []).join(" ");
+      if (typeof value != "string") {
+        if (arg == "style") {
+          for (const prop in value) {
+            if (/^--/.test(prop)) {
+              el.style.setProperty(prop, value);
+            } else {
+              el.style[prop as any] = value;
+            }
+          }
+          return;
+        } else if (arg == "class") {
+          value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
+        }
       }
 
-      el.setAttribute(arg, value);
+      el.setAttribute(arg!, value);
     });
   },
-  on: (expr, scope, el, arg) => el.addEventListener(arg, closure(`$event=>{${expr}}`, scope, el)()),
-  text: (expr, scope, el) => {
-    const get = closure(expr, scope, el);
-    effect(() => el.textContent = get());
+  on: (_, el: HTMLElement, arg, expr, scope) => listen(el, arg!, closure(`$event=>{${expr}}`, scope, el)()),
+  text: (get, el: HTMLElement) => effect(() => el.textContent = get()),
+  html: (get, el: HTMLElement) => effect(() => el.innerHTML = get()),
+  effect: effect,
+  init: nextTick,
+  show: (get, el: HTMLElement) => {
+    const display = el.style.display;
+    effect(() => el.style.display = get() ? "none" : display);
   },
-  effect: (expr, scope, el) => {
-    const run = closure(expr, scope, el);
-    effect(() => run());
+  model: (get, el: HTMLInputElement, _, expr, scope) => {
+    const assign = closure(`v=>${expr}=v`, scope, el)();
+
+    if (el.type == "checkbox") {
+      listen(el, "change", () => assign(el.value));
+      effect(() => el.value = get());
+    } else {
+      listen(el, "input", () => {
+          return assign(el.value);
+      });
+      effect(() => el.value = get());
+    }
   },
 };
 
-const closure = (expr: string, scope: any, el: Element) =>
-  new Function("$data", "$el", `with($data)return(${expr})`).bind(null, scope, el);
+const closure = (expr: string, scope: any, el: Element): () => any =>
+  new Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
 const walk = (el: Element, scope: any) => {
   let expr: string | null = null;
   const directive = (attr: string) => {
     expr = el.getAttribute(attr);
-    if (expr != null) el.removeAttribute(attr);
+    if (expr != null) {
+      el.removeAttribute(attr);
+      return true;
+    } else {
+      return false;
+    }
   };
 
-  if (directive("v-pre"), expr != null) return;
+  if (directive("v-pre")) return;
 
   directive("v-cloak");
 
-  if (directive("v-scope"), expr != null) {
-    scope = reactive(closure(expr, scope, el)());
+  if (directive("v-scope")) {
+    scope = reactive(closure(expr!, scope, el)(), scope);
+  }
+
+  if (directive("ref")) {
+    scope.$refs[expr!] = el;
   }
 
   const dirs = [...el.attributes].filter(attr => /^(v-|@|:)/.test(attr.name));
   for (const attr of dirs) {
     let directive = attr.name;
-    if (directive[0] == "@") directive = "v-on:" + directive.slice(1);
-    if (directive[0] == ":") directive = "v-bind:" + directive.slice(1);
+    let expr = attr.value;
+    if (directive[0] == "@") directive = "on:" + directive.slice(1);
+    else if (directive[0] == ":") directive = "bind:" + directive.slice(1);
+    else directive = directive.slice(2);
 
-    const match = /^v-(\w+)(:.*)?$/.exec(directive)!;
-    directives[match[1]](attr.value, scope, el, match[2]?.slice(1));
+    const match = directive.split(/:(?!.*:)/);
+    directives[match[0]](closure(expr, scope, el), el, match[1], expr, scope);
     el.removeAttributeNode(attr);
   }
 
@@ -59,8 +102,12 @@ const walk = (el: Element, scope: any) => {
   }
 };
 
-const scope = reactive({});
 const roots = [...document.querySelectorAll("[v-scope]")]
   .filter(root => !root.matches("[v-scope] [v-scope]"));
+
+const scope = reactive({
+  $refs: {},
+  $nextTick: nextTick,
+});
 
 for (const r of roots) walk(r, scope);
