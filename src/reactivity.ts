@@ -19,11 +19,12 @@ export const reactive = (scope: any, parent: any = {}) => {
     },
     set: (target, key: string, value) => {
       if (key in deps) {
-        target[key] = reactive(value);
         queueJob(() => deps[key].forEach(dep => dep()));
-        return true;
+        target[key] = reactive(value);
+      } else {
+        parent[key] = reactive(value);
       }
-      return Reflect.set(parent, key, value);
+      return true;
     },
     has: (target, key: string) => key in target || key in parent,
   });

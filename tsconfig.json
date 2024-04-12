@@ -4,6 +4,7 @@
     "strict": true,
     "noEmit": true,
     "target": "esnext",
+    "moduleResolution": "bundler",
     "lib": ["esnext", "dom", "dom.iterable"]
   }
 }

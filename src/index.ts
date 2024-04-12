@@ -58,7 +58,7 @@ const directives: Record<string, Directive<any>> = {
 };
 
 const closure = (expr: string, scope: any, el: Element): () => any =>
-  new Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
+  Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
 const walk = (el: Element, scope: any) => {
   let expr: string | null = null;
