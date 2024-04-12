@@ -60,6 +60,5 @@ Differences from Vue
 
 ## TODO:
 
-- other `v-model` types
+- `v-model` for radio/select elements
 - conditionals and loops
-- refs
