@@ -1,16 +1,26 @@
 import { effect, nextTick, reactive } from "./reactivity";
 
-type Directive<T extends Element> = (
-  get: () => any,
-  el: T,
-  arg: string | undefined,
-  expr: string,
-  scope: any,
-) => void;
-
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
-const directives: Record<string, Directive<any>> = {
+const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?: string) => void> = {
+  ref(expr, scope, el) {
+    scope.$refs[expr] = el;
+  },
+  on(expr, scope, el, arg) {
+    listen(el, arg!, compile(`$event=>{${expr}}`, scope, el)());
+  },
+  model(expr, scope, el: HTMLInputElement) {
+    const [ev, attr] = el.type == "checkbox"
+      ? ["change", "checked"] as const
+      : ["input", "value"] as const;
+
+    listen(el, ev, () => scope[expr] = el[attr]);
+    // @ts-ignore ???
+    effect(() => el[attr] = scope[expr]);
+  },
+};
+
+const directives: Record<string, (get: () => any, el: any, arg?: string) => void> = {
   bind(get, el: HTMLElement, arg) {
     const class_ = el.className;
     effect(() => {
@@ -33,9 +43,6 @@ const directives: Record<string, Directive<any>> = {
       el.setAttribute(arg!, value);
     });
   },
-  on(_, el: HTMLElement, arg, expr, scope) {
-    listen(el, arg!, closure(`$event=>{${expr}}`, scope, el)());
-  },
   text(get, el: HTMLElement) {
     effect(() => el.textContent = get());
   },
@@ -48,21 +55,13 @@ const directives: Record<string, Directive<any>> = {
     const display = el.style.display;
     effect(() => el.style.display = get() ? "none" : display);
   },
-  model(get, el: HTMLInputElement, _, expr, scope) {
-    const [ev, getter] = el.type == "checkbox"
-      ? ["change", "checked"]
-      : ["input", "value"];
-
-    listen(el, ev, closure(`${expr}=$el.${getter}`, scope, el));
-    effect(() => el.value = get());
-  },
 };
 
-const closure = (expr: string, scope: any, el: Element): () => any =>
+const compile = (expr: string, scope: any, el: Element): () => any =>
   Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
 const walk = (el: Element, scope: any) => {
-  let expr: string | null = null;
+  let expr: string | null;
   const directive = (attr: string) => {
     expr = el.getAttribute(attr);
     if (expr != null) {
@@ -78,29 +77,34 @@ const walk = (el: Element, scope: any) => {
   directive("x-cloak");
 
   if (directive("x-data")) {
-    scope = reactive(closure(expr!, scope, el)(), scope);
+    scope = reactive({ ...compile(expr!, scope, el)(), $refs: Object.create(scope.$refs) }, scope);
   }
 
-  if (directive("x-ref")) {
-    scope.$refs[expr!] = el;
-  }
+  for (const attr of [...el.attributes]) {
+    const directive = attr.name;
+    const expr = attr.value;
+    if (!/^(x-|@|:)/.test(directive)) continue;
 
-  const dirs = [...el.attributes].filter(attr => /^(x-|@|:)/.test(attr.name));
-  for (const attr of dirs) {
-    let directive = attr.name;
-    let expr = attr.value;
-    if (directive[0] == "@") directive = "on:" + directive.slice(1);
-    else if (directive[0] == ":") directive = "bind:" + directive.slice(1);
-    else directive = directive.slice(2);
-
-    const match = directive.split(/:(?!.*:)/);
-    directives[match[0]](closure(expr, scope, el), el, match[1], expr, scope);
+    const [name, arg] = normalizeDirective(directive).split(/:(?!.*:)/);
+    if (name in specialDirectives) {
+      specialDirectives[name](expr, scope, el, arg);
+    } else {
+      directives[name](compile(expr, scope, el), el, arg);
+    }
     el.removeAttributeNode(attr);
   }
 
   for (const node of el.children) {
     walk(node, scope);
   }
+};
+
+const normalizeDirective = (dir: string) => {
+  return dir[0] == "@"
+    ? "on:" + dir.slice(1)
+    : dir[0] == ":"
+    ? "bind:" + dir.slice(1)
+    : dir.slice(2);
 };
 
 const scope = reactive({

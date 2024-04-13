@@ -1,18 +1,20 @@
-const stack = <(() => void)[]> [];
+export type Effect = { (): void };
+
+const classOf = (obj: any) => obj?.constructor;
 
 export const reactive = (scope: any, parent: any = {}) => {
-  if (typeof scope != "object" || !scope) return scope;
+  if (classOf(scope) != Object && classOf(scope) != Array) return scope;
 
-  const deps: Record<string, Set<() => void>> = {};
+  const deps: Record<string, Set<Effect>> = {};
   for (const key in scope) {
-    deps[key] = new Set<() => void>();
+    deps[key] = new Set();
     scope[key] = reactive(scope[key]);
   }
 
   return new Proxy(scope, {
     get: (target, key: string /* gaslighting */) => {
       if (key in deps) {
-        if (stack[0]) deps[key].add(stack[0]);
+        if (running) deps[key].add(running);
         return target[key];
       }
       return parent[key];
@@ -22,7 +24,7 @@ export const reactive = (scope: any, parent: any = {}) => {
         queueJob(() => deps[key].forEach(dep => dep()));
         target[key] = reactive(value);
       } else {
-        parent[key] = reactive(value);
+        parent[key] = value;
       }
       return true;
     },
@@ -30,13 +32,15 @@ export const reactive = (scope: any, parent: any = {}) => {
   });
 };
 
+let running: Effect;
 export const effect = (fn: () => void) => {
-  const execute = () => {
-    stack.unshift(execute);
+  const execute: Effect = () => {
+    const lastRunning = running;
+    running = execute;
     try {
       fn();
     } finally {
-      stack.shift();
+      running = lastRunning;
     }
   };
 
