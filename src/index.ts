@@ -14,6 +14,7 @@ export const mount = (root: Element = document.body) => {
   };
 };
 
+const kebabToCamel = (str: string) => str?.replace(/-./, c => c[1].toUpperCase());
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
 const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?: string) => void> = {
@@ -24,11 +25,11 @@ const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?
     listen(el, arg!, compile(`$event=>{${expr}}`, scope, el)());
   },
   model(expr, scope, el: HTMLInputElement) {
-    const [ev, attr] = el.type == "checkbox"
-      ? ["change", "checked"] as const
-      : ["input", "value"] as const;
+    const attr = el.type == "checkbox"
+      ? "checked"
+      : "value";
 
-    listen(el, ev, () => scope[expr] = el[attr]);
+    listen(el, "input", () => scope[expr] = el[attr]);
     // @ts-ignore ???
     effect(() => el[attr] = scope[expr]);
   },
@@ -39,23 +40,30 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
     const class_ = el.className;
     effect(() => {
       let value = get();
-      if (typeof value != "string") {
-        if (arg == "style") {
-          for (const prop in value) {
-            if (/^--/.test(prop)) {
-              el.style.setProperty(prop, value[prop]);
-            } else {
-              el.style[prop as any] = value[prop];
+      if (typeof value == "boolean") {
+        el.toggleAttribute(arg!, value);
+      } else {
+        if (typeof value != "string") {
+          if (arg == "style") {
+            for (const prop in value) {
+              if (/^--/.test(prop)) {
+                el.style.setProperty(prop, value[prop]);
+              } else {
+                el.style[prop as any] = value[prop];
+              }
             }
+            return;
+          } else if (arg == "class") {
+            value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
           }
-          return;
-        } else if (arg == "class") {
-          value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
         }
+        el.setAttribute(arg!, value);
       }
-
-      el.setAttribute(arg!, value);
     });
+  },
+  prop(get, el: HTMLElement, arg) {
+    // @ts-ignore
+    effect(() => el[arg] = get());
   },
   text(get, el: HTMLElement) {
     effect(() => el.textContent = get());
@@ -95,11 +103,13 @@ const walk = (el: Element, scope: any) => {
   }
 
   for (const attr of [...el.attributes]) {
-    const directive = attr.name;
-    const expr = attr.value;
-    if (!/^(x-|@|:)/.test(directive)) continue;
+    let directive = attr.name;
+    let expr = attr.value;
+    if (!/^(x-|[@:.])/.test(directive)) continue;
 
-    const [name, arg] = normalizeDirective(directive).split(/:(?!.*:)/);
+    let [name, arg] = normalizeDirective(directive).split(/:(?!.*:)/);
+    arg = kebabToCamel(arg);
+    expr ??= arg;
     if (name in specialDirectives) {
       specialDirectives[name](expr, scope, el, arg);
     } else {
@@ -118,6 +128,8 @@ const normalizeDirective = (dir: string) => {
     ? "on:" + dir.slice(1)
     : dir[0] == ":"
     ? "bind:" + dir.slice(1)
+    : dir[0] == "."
+    ? "prop:" + dir.slice(1)
     : dir.slice(2);
 };
 
