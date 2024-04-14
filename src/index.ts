@@ -8,7 +8,10 @@ export const mount = (root: Element = document.body) => {
 
   walk(root, scope);
 
-  return () => effects.forEach(eff => eff.h = true);
+  return () => {
+    effects.forEach(eff => eff.h = true);
+    effects.length = 0;
+  };
 };
 
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);

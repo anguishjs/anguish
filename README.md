@@ -4,9 +4,9 @@ The Regressive JavaScript Framework.
 
 ## What?
 
-This is a proof of concept for a Vue-like markup-only framework like [Alpine.js](https://alpinejs.dev/) or
-[petite-vue](https://github.com/vuejs/petite-vue). It aims for an even smaller bundle size, being currently at 1.7kb
-(900 bytes gzipped!) with most of the core implemented.
+This is a proof of concept for a markup-only framework like [Alpine.js](https://alpinejs.dev/) or
+[petite-vue](https://github.com/vuejs/petite-vue). It aims for an even smaller bundle size, being currently at ~2kb (1kb
+gzipped!) with most of the core implemented.
 
 ## Usage
 
@@ -15,17 +15,17 @@ Anguish.js does not require any compilation:
 ``` html
 <script src="//unpkg.com/anguishjs" defer></script>
 
-<div v-scope="{ count: 0 }">
-  <div v-text="count"></div>
+<div x-data="{ count: 0 }">
+  <div x-text="count"></div>
   <button @click="count++">Click me!</button>
 </div>
 ```
 
-- `v-scope` defines data for the component…
+- `x-data` defines data for the component…
 
   Variables will be available within the element, and scopes can be nested.
 
-- `v-text` sets the inner text of the element…
+- `x-text` sets the inner text of the element…
 
   By default, everything is reactive: the text will be re-evaluated every time `count` changes.
 
@@ -37,28 +37,30 @@ Easy as!
 
 ## Features
 
-- `v-scope` for defining data
-- `v-pre` for ignoring elements
-- `v-cloak` for hiding elements until processed
-- `v-on:event`/`@event` for adding listeners
-- `v-bind:prop`/`:prop`
-  - regular attributes
-  - `class` object: `:class="{ fontSize: size + 'px' }"`
-- `v-text` for setting `textContent`
-- `v-html` for setting `innerHTML`
-- `v-effect` for inline reactive code
-- `v-init` for running code on mount
-- `v-show` for hiding elements
-- `v-model` for binding values from input elements
+- `x-data` for defining data
+- `x-ignore` for ignoring elements
+- `x-cloak` for hiding elements until processed
+- `x-on:event`/`@event` for adding listeners
+- `x-bind:prop`/`:prop`
+  - `style` objects: `:style="{ fontSize: size + 'px' }"`
+  - `class` objects: `class="box" :class="{ warning }"`
+- `x-text` for setting `textContent`
+- `x-html` for setting `innerHTML`
+- `x-effect` for inline reactive code
+- `x-init` for running code on mount
+- `x-show` for hiding elements
+- `x-model` for binding values from input elements
   - only strings for now
-- `ref` for adding elements to `$refs`
+- `x-ref` for adding elements to `$refs` in the current scope
 
 Differences from Vue
 
-- `:ref`. In Anguish, `ref` is not a dynamic property. I honestly don’t know in what usecase you might need to
-  dynamically rename a ref, but it makes it a bit more complicated to implement.
+## Manual initialization
 
-## TODO:
+It is also possible to import Anguish.js as an ES6 module, in which it will not automatically mount itself to the body.
 
-- `v-model` for radio/select elements
-- conditionals and loops
+``` js
+import { mount } from "//unpkg.com/anguishjs?module";
+
+const unmount = mount(document.getElementById("root")); // Calling unmount will stop all directives from running
+```
