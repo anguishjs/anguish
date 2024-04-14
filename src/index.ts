@@ -118,4 +118,8 @@ const normalizeDirective = (dir: string) => {
     : dir.slice(2);
 };
 
-mount();
+declare const BUILD: "iife" | "esm";
+
+if (typeof BUILD == "undefined" || BUILD == "iife") {
+  mount();
+}

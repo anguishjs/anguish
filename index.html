@@ -1,16 +1,10 @@
 <!DOCTYPE html>
 <html lang="en">
   <script src="src/index.ts" type="module" defer></script>
-
   <body>
-    <div x-data="{ open: false }">
-      <button x-on:click="open = !open">open</button>
-      <div x-if="open">
-        <div x-data="{ count: 0 }">
-          <span x-text="count"></span>
-          <button @click="count++">++</button>
-        </div>
-      </div>
+    <div x-data="{ count: 0 }">
+      <span x-text="count"></span>
+      <button @click="count++">++</button>
     </div>
   </body>
 </html>
