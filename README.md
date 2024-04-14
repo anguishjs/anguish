@@ -168,7 +168,7 @@ avoid name conflicts when using a template system for your HTMl.
 It is also possible to import Anguish.js as an ES6 module, in which it will not automatically mount itself to the body.
 
 ``` js
-import { mount } from "//unpkg.com/anguishjs?module";
+import { mount } from "https://esm.sh/anguishjs";
 
 const unmount = mount(document.getElementById("root")); // Calling unmount will stop all directives from running
 ```
