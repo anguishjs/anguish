@@ -6,7 +6,8 @@
   "files": [
     "dist"
   ],
-  "main": "./dist/anguish.js",
+  "browser": "./dist/anguish.js",
+  "module": "./dist/anguish.mjs",
   "scripts": {
     "build": "tsx build.ts",
     "prepublish": "pnpm build"

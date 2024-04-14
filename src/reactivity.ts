@@ -1,40 +1,48 @@
-export type Effect = { (): void };
+export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
 
-const classOf = (obj: any) => obj?.constructor;
-
-export const reactive = (scope: any, parent: any = {}) => {
-  if (classOf(scope) != Object && classOf(scope) != Array) return scope;
-
-  const deps: Record<string, Set<Effect>> = {};
-  for (const key in scope) {
-    deps[key] = new Set();
-    scope[key] = reactive(scope[key]);
-  }
+const queue = new Set<Effect>();
+export const reactive = (scope: any) => {
+  const deps: Record<keyof any, Set<Effect>> = {};
 
   return new Proxy(scope, {
-    get: (target, key: string /* gaslighting */) => {
-      if (key in deps) {
-        if (running) deps[key].add(running);
-        return target[key];
-      }
-      return parent[key];
+    get: (target, key) => {
+      running?.d.add((deps[key] ??= new Set()).add(running));
+      return target[key];
     },
-    set: (target, key: string, value) => {
-      if (key in deps) {
-        queueJob(() => deps[key].forEach(dep => dep()));
-        target[key] = reactive(value);
-      } else {
-        parent[key] = value;
-      }
+    set: (target, key, value) => {
+      (deps[key] ??= new Set()).forEach((eff) => {
+        queue.add(eff);
+        if (queue.size == 1) {
+          nextTick(() => {
+            queue.forEach(eff => eff());
+            queue.clear();
+          });
+        }
+      });
+      target[key] = value;
       return true;
     },
-    has: (target, key: string) => key in target || key in parent,
+    has: (target, key) => key in target,
   });
 };
 
+export const subscope = (scope: any, parent: any) =>
+  new Proxy(reactive(scope), {
+    get: (target, key) => key in target ? target[key] : parent[key],
+    set: (target, key, value) => {
+      (key in target ? target : parent)[key] = value;
+      return true;
+    },
+    has: (target, key) => key in target || key in parent,
+  });
+
 let running: Effect;
+export const effects = <Effect[]> [];
 export const effect = (fn: () => void) => {
   const execute: Effect = () => {
+    execute.d.forEach(d => d.delete(execute));
+    execute.d.clear();
+    if (execute.h) return;
     const lastRunning = running;
     running = execute;
     try {
@@ -44,17 +52,9 @@ export const effect = (fn: () => void) => {
     }
   };
 
+  execute.d = new Set();
+  effects.push(execute);
   execute();
 };
 
-const queue = <(() => void)[]> [];
 export const nextTick = (fn: () => void) => queueMicrotask(fn);
-export const queueJob = (fn: () => void) => {
-  queue.push(fn);
-  if (queue.length == 1) {
-    nextTick(() => {
-      queue.forEach(fn => fn());
-      queue.length = 0;
-    });
-  }
-};

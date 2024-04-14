@@ -1,4 +1,15 @@
-import { effect, nextTick, reactive } from "./reactivity";
+import { effect, effects, nextTick, reactive, subscope } from "./reactivity";
+
+export const mount = (root: Element = document.body) => {
+  const scope = reactive({
+    $refs: {},
+    $nextTick: nextTick,
+  });
+
+  walk(root, scope);
+
+  return () => effects.forEach(eff => eff.h = true);
+};
 
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
@@ -77,7 +88,7 @@ const walk = (el: Element, scope: any) => {
   directive("x-cloak");
 
   if (directive("x-data")) {
-    scope = reactive({ ...compile(expr!, scope, el)(), $refs: Object.create(scope.$refs) }, scope);
+    scope = subscope({ ...compile(expr!, scope, el)(), $refs: Object.create(scope.$refs) }, scope);
   }
 
   for (const attr of [...el.attributes]) {
@@ -107,12 +118,4 @@ const normalizeDirective = (dir: string) => {
     : dir.slice(2);
 };
 
-const scope = reactive({
-  $refs: {},
-  $nextTick: nextTick,
-});
-
-const roots = [...document.querySelectorAll("[x-data]")]
-  .filter(root => !root.matches("[x-data] [x-data]"));
-
-for (const r of roots) walk(r, scope);
+mount();
