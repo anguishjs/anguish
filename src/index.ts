@@ -43,9 +43,9 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
         if (arg == "style") {
           for (const prop in value) {
             if (/^--/.test(prop)) {
-              el.style.setProperty(prop, value);
+              el.style.setProperty(prop, value[prop]);
             } else {
-              el.style[prop as any] = value;
+              el.style[prop as any] = value[prop];
             }
           }
           return;
