@@ -109,7 +109,7 @@ const walk = (el: Element, scope: any) => {
 
     let [name, arg] = normalizeDirective(directive).split(/:(?!.*:)/);
     arg = kebabToCamel(arg);
-    expr ??= arg;
+    expr ||= arg;
     if (name in specialDirectives) {
       specialDirectives[name](expr, scope, el, arg);
     } else {
