@@ -1,4 +1,4 @@
-import { effect, effects, nextTick, reactive, subscope } from "./reactivity";
+import { effect, effects, nextTick, reactive } from "./reactivity";
 
 export const mount = (root: Element = document.body) => {
   walk(root, reactive({ $refs: {}, $nextTick: nextTick }));
@@ -9,7 +9,7 @@ export const mount = (root: Element = document.body) => {
   };
 };
 
-const kebabToCamel = (str: string) => str?.replace(/-./, c => c[1].toUpperCase());
+const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
 const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
 
 const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?: string) => void> = {
@@ -37,23 +37,23 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
       let value = get();
       if (typeof value == "boolean") {
         el.toggleAttribute(arg!, value);
-      } else {
-        if (typeof value != "string") {
-          if (arg == "style") {
-            for (const prop in value) {
-              if (/^--/.test(prop)) {
-                el.style.setProperty(prop, value[prop]);
-              } else {
-                el.style[prop as any] = value[prop];
-              }
-            }
-            return;
-          } else if (arg == "class") {
-            value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
-          }
-        }
-        el.setAttribute(arg!, value);
+        return;
       }
+      if (typeof value == "object") {
+        if (arg == "style") {
+          for (const prop in value) {
+            if (/^--/.test(prop)) {
+              el.style.setProperty(prop, value[prop]);
+            } else {
+              el.style[prop as any] = value[prop];
+            }
+          }
+          return;
+        } else if (arg == "class") {
+          value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
+        }
+      }
+      el.setAttribute(arg!, value);
     });
   },
   prop(get, el: HTMLElement, arg) {
@@ -69,8 +69,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
   effect: effect,
   init: nextTick,
   show(get, el: HTMLElement) {
-    const display = el.style.display;
-    effect(() => el.style.display = get() ? "none" : display);
+    effect(() => el.style.display = get() ? "none" : "");
   },
   cloak() {},
 };
@@ -79,25 +78,13 @@ const compile = (expr: string, scope: any, el: Element): () => any =>
   Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
 const walk = (el: Element, scope: any) => {
-  let expr: string | null;
-  const directive = (attr: string) => {
-    expr = el.getAttribute(attr);
-    if (expr != null) {
-      el.removeAttribute(attr);
-      return true;
-    } else {
-      return false;
-    }
-  };
+  const data = el.getAttribute("x-data");
 
-  if (directive("x-ignore")) return;
-
-  if (directive("x-data")) {
-    scope = subscope({
-      ...compile(expr!, scope, el)(),
-      $refs: Object.create(scope.$refs),
-      $root: el,
-    }, scope);
+  if (data != null) {
+    el.removeAttribute("x-data");
+    scope = reactive(compile(data, scope, el)(), scope);
+    scope.$refs = Object.create(scope.$refs);
+    scope.$root = el;
   }
 
   for (const attr of [...el.attributes]) {
@@ -105,8 +92,7 @@ const walk = (el: Element, scope: any) => {
     let expr = attr.value;
     if (!/^(x-|[@:.])/.test(directive)) continue;
 
-    let [name, arg] = normalizeDirective(directive).split(/:(.*)/);
-    arg = kebabToCamel(arg);
+    let [name, arg] = kebabToCamel(normalizeDirective(directive)).split(/:(.*)/);
     expr ||= arg;
     if (name in specialDirectives) {
       specialDirectives[name](expr, scope, el, arg);

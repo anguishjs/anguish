@@ -8,56 +8,53 @@ const proxy = (
   has?: (t: any, k: string) => boolean,
 ) => new Proxy(obj, { get, set, has });
 
-const read = (deps: Set<Effect>, target: any, key: keyof any) => {
-  running?.d.add(deps.add(running));
-  return target[key];
+const dependOn = (deps: Set<Effect>, value: any) => {
+  if (classOf(value) == Object || classOf(value) == Array) {
+    value = proxy(
+      value,
+      (obj, k) => read(deps, obj, k, value),
+      (obj, k, v) => write(deps, obj, k, v, value),
+    );
+  }
+  return value;
 };
 
-const write = (deps: Set<Effect>, target: any, key: keyof any, value: any) => {
-  deps.forEach((eff) => {
-    queue.add(eff);
-    if (queue.size == 1) {
-      nextTick(() => {
-        queue.forEach(eff => eff());
-        queue.clear();
-      });
-    }
-  });
-  target[key] = value;
-  return true;
+const read = (deps: Set<Effect>, target: any, key: keyof any, recv: any) => {
+  running?.d.add(deps.add(running));
+  return Reflect.get(target, key, recv);
+};
+
+const write = (deps: Set<Effect>, target: any, key: keyof any, value: any, recv: any) => {
+  deps.forEach(enqueue);
+  value = dependOn(deps, value);
+  return Reflect.set(target, key, value, recv);
 };
 
 const queue = new Set<Effect>();
-export const reactive = (scope: any) => {
+const enqueue = (eff: Effect) => {
+  if (!queue.size) {
+    nextTick(() => {
+      queue.forEach(eff => eff());
+      queue.clear();
+    });
+  }
+  queue.add(eff);
+};
+export const nextTick = (fn: () => void) => queueMicrotask(fn);
+
+export const reactive = (scope: any, parent: any = {}) => {
   const deps: Record<keyof any, Set<Effect>> = {};
   for (const key in scope) {
-    const value = scope[key];
-    if (classOf(value) == Array || classOf(value) == Object) {
-      scope[key] = proxy(
-        value,
-        (obj, k) => read(deps[key], obj, k),
-        (obj, k, v) => write(deps[key], obj, k, v),
-      );
-    }
+    Reflect.set(scope, key, dependOn(deps[key] = new Set(), scope[key]))
   }
 
-  return proxy(
+  return scope = proxy(
     scope,
-    (obj, k) => read(deps[k] ??= new Set(), obj, k),
-    (obj, k, v) => write(deps[k] ??= new Set(), obj, k, v),
-  );
-};
-
-export const subscope = (scope: any, parent: any) =>
-  proxy(
-    reactive(scope),
-    (obj, k) => k in obj ? obj[k] : parent[k],
-    (obj, k, v) => {
-      (k in obj ? obj : parent)[k] = v;
-      return true;
-    },
+    (obj, k) => k in obj ? read(deps[k], obj, k, scope) : parent[k],
+    (obj, k, v) => k in obj ? write(deps[k], obj, k, v, scope) : (parent[k] = v, true),
     (obj, k) => k in obj || k in parent,
   );
+};
 
 let running: Effect;
 export const effects = <Effect[]> [];
@@ -77,7 +74,5 @@ export const effect = (fn: () => void) => {
 
   execute.d = new Set();
   effects.push(execute);
-  execute();
+  enqueue(execute);
 };
-
-export const nextTick = (fn: () => void) => queueMicrotask(fn);
