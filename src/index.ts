@@ -1,12 +1,7 @@
 import { effect, effects, nextTick, reactive, subscope } from "./reactivity";
 
 export const mount = (root: Element = document.body) => {
-  const scope = reactive({
-    $refs: {},
-    $nextTick: nextTick,
-  });
-
-  walk(root, scope);
+  walk(root, reactive({ $refs: {}, $nextTick: nextTick }));
 
   return () => {
     effects.forEach(eff => eff.h = true);
@@ -77,6 +72,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
     const display = el.style.display;
     effect(() => el.style.display = get() ? "none" : display);
   },
+  cloak() {},
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
@@ -96,10 +92,12 @@ const walk = (el: Element, scope: any) => {
 
   if (directive("x-ignore")) return;
 
-  directive("x-cloak");
-
   if (directive("x-data")) {
-    scope = subscope({ ...compile(expr!, scope, el)(), $refs: Object.create(scope.$refs) }, scope);
+    scope = subscope({
+      ...compile(expr!, scope, el)(),
+      $refs: Object.create(scope.$refs),
+      $root: el,
+    }, scope);
   }
 
   for (const attr of [...el.attributes]) {
@@ -107,7 +105,7 @@ const walk = (el: Element, scope: any) => {
     let expr = attr.value;
     if (!/^(x-|[@:.])/.test(directive)) continue;
 
-    let [name, arg] = normalizeDirective(directive).split(/:(?!.*:)/);
+    let [name, arg] = normalizeDirective(directive).split(/:(.*)/);
     arg = kebabToCamel(arg);
     expr ||= arg;
     if (name in specialDirectives) {
@@ -124,13 +122,10 @@ const walk = (el: Element, scope: any) => {
 };
 
 const normalizeDirective = (dir: string) => {
-  return dir[0] == "@"
-    ? "on:" + dir.slice(1)
-    : dir[0] == ":"
-    ? "bind:" + dir.slice(1)
-    : dir[0] == "."
-    ? "prop:" + dir.slice(1)
-    : dir.slice(2);
+  if (dir[0] == "@") return "on:" + dir.slice(1);
+  if (dir[0] == ".") return "prop:" + dir.slice(1);
+  if (dir[0] == ":") return "bind" + dir;
+  return dir.slice(2);
 };
 
 declare const BUILD: "iife" | "esm";

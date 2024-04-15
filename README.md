@@ -39,6 +39,38 @@ Easy as!
 
 As you’ve learned, special attributes—called directives—are used for defining our components. Let’s see a couple more…
 
+### `x-data`
+
+`x-data` defines the reactive data for a component. Each of the object’s keys will be available in the component’s
+elements as variables. This object can contain any type of data, and nested objects and arrays will also be reactive.
+
+You do not need to use an object literal, if things get too big, you might want to put it in a script:
+
+``` html
+<script>
+function myComponent() {
+  return {
+    size: 36,
+    topText: "Top text",
+    bottomText: "Bottom text",
+  };
+}
+</script>
+
+<div x-data="myComponent()">...</div>
+```
+
+Nesting data works naturally:
+
+``` html
+<div x-data="{ foo: 'bar' }">
+  <div x-data="{ foo: 'nested' }">
+    <div x-text="foo"><!-- 'nested' --></div>
+  </div>
+  <div x-text="foo"><!-- 'bar' --></div>
+</div>
+```
+
 ### `x-text` and `x-html`
 
 `x-text` and `x-html` set the `textContent` and `innerHTML` of an element, respectively:
@@ -70,6 +102,11 @@ prevent something from showing up while the page is rendering:
 ``` html
 <style>[x-cloak] { display: none }</style>
 ```
+
+### `$el` and `$root`
+
+`$el` and `$root` are special variables usable in directives. `$el` refers to the current element, and `$root` refers to
+the component’s root (the nearest `x-data`).
 
 ### `x-bind`, `x-prop` and attributes
 
@@ -132,8 +169,8 @@ Since HTML attributes are case-insensitive, kebab-case attributes will be automa
 
 ### `x-ref` and `$refs`
 
-Refs work very much like element IDs, except they are bound to the component’s scope. This is particularly useful to
-avoid name conflicts when using a template system for your HTMl.
+Refs work very much like element IDs, except that they are bound to the component’s scope. This is particularly useful
+to avoid name conflicts when using a template system for your HTMl.
 
 ``` html
 <!-- Hide the ugly file input! -->
