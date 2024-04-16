@@ -1,4 +1,5 @@
-export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
+export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean; };
+type Callback = { (): void; e?: Effect };
 
 const classOf = (obj: any) => obj?.constructor;
 const proxy = (
@@ -31,7 +32,7 @@ const write = (deps: Set<Effect>, target: any, key: keyof any, value: any, recv:
 };
 
 const queue = new Set<Effect>();
-const enqueue = (eff: Effect) => {
+export const enqueue = (eff: Effect) => {
   if (!queue.size) {
     nextTick(() => {
       queue.forEach(eff => eff());
@@ -57,8 +58,7 @@ export const reactive = (scope: any, parent: any = {}) => {
 };
 
 let running: Effect;
-export const effects = <Effect[]> [];
-export const effect = (fn: () => void) => {
+export const effect = (fn: Callback) => {
   const execute: Effect = () => {
     execute.d.forEach(d => d.delete(execute));
     execute.d.clear();
@@ -73,6 +73,5 @@ export const effect = (fn: () => void) => {
   };
 
   execute.d = new Set();
-  effects.push(execute);
-  enqueue(execute);
+  enqueue(fn.e = execute);
 };

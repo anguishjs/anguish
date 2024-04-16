@@ -1,0 +1,40 @@
+<script src="src/index.ts" type="module" defer></script>
+
+<script>
+  const todoApp = () => ({
+    addItem(value) {
+      value = value.trim();
+      if (!value) return;
+      this.$refs.todos.append(item({ value, completed: false }).$root);
+    },
+  });
+</script>
+
+<body>
+  <section x-data="todoApp()">
+    <header>
+      <h1>todos</h1>
+      <input
+        class="new-todo"
+        placeholder="What needs to be done?"
+        autofocus
+        @change="addItem($el.value), $el.value = ''"
+      />
+    </header>
+
+    <main x-show="$refs.todos.children.length">
+      <ul x-ref="todos">
+        <template x-name="item">
+          <li :class="{ completed }">
+            <div class="view">
+              <input type="text" x-model="value" />
+              <button @click="$unmount()">remove</button>
+            </div>
+          </li>
+        </template>
+      </ul>
+    </main>
+
+    <footer></footer>
+  </section>
+</body>
