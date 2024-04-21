@@ -1,12 +1,16 @@
-import { effect, effects, nextTick, reactive } from "./reactivity";
+import { Effect, effect as _effect, enqueue, nextTick, observedNodes, reactive } from "./reactivity";
+
+let effect = _effect;
 
 export const mount = (root: Element = document.body) => {
-  walk(root, reactive({ $refs: {}, $nextTick: nextTick }));
+  new MutationObserver((muts) =>
+    muts.forEach((mut) => {
+      mut.removedNodes.forEach(n => observedNodes.delete(n));
+      observedNodes.forEach((deps, node) => node.contains(mut.target) && deps.forEach(enqueue));
+    })
+  ).observe(root, { subtree: true, childList: true });
 
-  return () => {
-    effects.forEach(eff => eff.h = true);
-    effects.length = 0;
-  };
+  return context(root, { $refs: {}, $nextTick: nextTick });
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
@@ -67,7 +71,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
   html(get, el: HTMLElement) {
     effect(() => el.innerHTML = get());
   },
-  effect: effect,
+  effect: (get) => effect(get),
   init: nextTick,
   show(get, el: HTMLElement) {
     effect(() => el.style.display = get() ? "" : "none");
@@ -78,14 +82,50 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
 const compile = (expr: string, scope: any, el: Element): () => any =>
   Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
-const walk = (el: Element, scope: any) => {
-  const data = el.getAttribute("x-data");
+const renderComponent = (el: any, scope: any, props: any) => {
+  props.$refs = Object.create(scope.$refs);
+  el.$data = scope = reactive(props, scope);
+  props.$unmount = context(el, scope);
+  props.$root = el;
+  return el;
+};
 
-  if (data != null) {
-    el.removeAttribute("x-data");
-    scope = reactive(compile(data, scope, el)(), scope);
-    scope.$refs = Object.create(scope.$refs);
-    scope.$root = el;
+const context = (el: Element, scope: any) => {
+  const effects = new Set<Effect>();
+  const eff = effect;
+  effect = (fn) => {
+    eff(fn);
+    effects.add(fn.e!);
+  };
+  walk(el, scope);
+  effect = eff;
+
+  return () => {
+    el.remove();
+    // enqueue halted effects so they can remove themselves from deps
+    effects.forEach(eff => (eff.h = true, enqueue(eff)));
+    effects.clear();
+  };
+};
+
+const walk = (el: Element, scope: any) => {
+  let expr: string | null;
+  const directive = (attr: string) => {
+    expr = el.getAttribute(attr);
+    el.removeAttribute(attr);
+    return expr != null;
+  };
+
+  if (directive("x-name")) {
+    el.remove();
+    (<any> window)[expr!] = (props = {}) =>
+      renderComponent((<HTMLTemplateElement> el).content.children[0].cloneNode(true), scope, props);
+    return;
+  }
+
+  if (directive("x-data")) {
+    renderComponent(el, scope, compile(expr!, scope, el)());
+    return;
   }
 
   for (const attr of [...el.attributes]) {
