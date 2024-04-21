@@ -35,10 +35,6 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
     const class_ = el.className;
     effect(() => {
       let value = get();
-      if (typeof value == "boolean") {
-        el.toggleAttribute(arg!, value);
-        return;
-      }
       if (typeof value == "object") {
         if (arg == "style") {
           for (const prop in value) {
@@ -49,16 +45,21 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
             }
           }
           return;
-        } else if (arg == "class") {
-          value = class_ + " " + Object.keys(value).filter(k => value[k]).join(" ");
+        }
+        if (arg == "class") {
+          value = [...class_ && [class_], ...Object.keys(value).filter(k => value[k])].join(" ");
         }
       }
-      el.setAttribute(arg!, value);
+      // hehe
+      if (!value! || !!value === value!!) {
+        el.toggleAttribute(arg!, !!value!!);
+      } else {
+        el.setAttribute(arg!, value);
+      }
     });
   },
-  prop(get, el: HTMLElement, arg) {
-    // @ts-ignore
-    effect(() => el[arg] = get());
+  prop(get, el, arg) {
+    effect(() => el[arg!] = get());
   },
   text(get, el: HTMLElement) {
     effect(() => el.textContent = get());
@@ -69,7 +70,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
   effect: effect,
   init: nextTick,
   show(get, el: HTMLElement) {
-    effect(() => el.style.display = get() ? "none" : "");
+    effect(() => el.style.display = get() ? "" : "none");
   },
   cloak() {},
 };
@@ -89,11 +90,10 @@ const walk = (el: Element, scope: any) => {
 
   for (const attr of [...el.attributes]) {
     let directive = attr.name;
-    let expr = attr.value;
     if (!/^(x-|[@:.])/.test(directive)) continue;
 
     let [name, arg] = kebabToCamel(normalizeDirective(directive)).split(/:(.*)/);
-    expr ||= arg;
+    expr = attr.value || arg;
     if (name in specialDirectives) {
       specialDirectives[name](expr, scope, el, arg);
     } else {
@@ -102,9 +102,7 @@ const walk = (el: Element, scope: any) => {
     el.removeAttributeNode(attr);
   }
 
-  for (const node of el.children) {
-    walk(node, scope);
-  }
+  for (const node of el.children) walk(node, scope);
 };
 
 const normalizeDirective = (dir: string) => {

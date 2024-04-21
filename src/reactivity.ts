@@ -20,7 +20,7 @@ const dependOn = (deps: Set<Effect>, value: any) => {
 };
 
 const read = (deps: Set<Effect>, target: any, key: keyof any, recv: any) => {
-  running?.d.add(deps.add(running));
+  if (deps) running?.d.add(deps.add(running));
   return Reflect.get(target, key, recv);
 };
 
@@ -44,8 +44,11 @@ export const nextTick = (fn: () => void) => queueMicrotask(fn);
 
 export const reactive = (scope: any, parent: any = {}) => {
   const deps: Record<keyof any, Set<Effect>> = {};
-  for (const key in scope) {
-    Reflect.set(scope, key, dependOn(deps[key] = new Set(), scope[key]))
+  const desc = Object.getOwnPropertyDescriptors(scope);
+  for (const key in desc) {
+    if ("value" in desc[key]) {
+      Reflect.set(scope, key, dependOn(deps[key] = new Set(), scope[key]));
+    }
   }
 
   return scope = proxy(
