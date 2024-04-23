@@ -39,7 +39,7 @@ Easy as!
 
 As you’ve learned, special attributes—called directives—are used for defining our components. Let’s see a couple more…
 
-### `x-data`
+### `x-data`, `x-name` and components
 
 `x-data` defines the reactive data for a component. Each of the object’s keys will be available in the component’s
 elements as variables. This object can contain any type of data, and nested objects and arrays will also be reactive.
@@ -60,7 +60,7 @@ function myComponent() {
 <div x-data="myComponent()">...</div>
 ```
 
-Nesting data works naturally:
+Nesting data works pretty naturally:
 
 ``` html
 <div x-data="{ foo: 'bar' }">
@@ -83,7 +83,7 @@ Nesting data works naturally:
 </div>
 ```
 
-### `x-show` and `x-cloak`
+### `x-show`
 
 `x-show` hides an element based on it’s value:
 
@@ -96,11 +96,11 @@ Nesting data works naturally:
 </div>
 ```
 
-`x-cloak` is a directive that gets removed when the element is mounted. This can be used in conjuction to `x-show` to
-prevent something from showing up while the page is rendering:
+Since directives are completely removed when everything is rendered, you can use this to hide elements which shouldnt
+show up initially:
 
 ``` html
-<style>[x-cloak] { display: none }</style>
+<style>[x-show] { display: none; }</style>
 ```
 
 ### `$el` and `$root`
@@ -207,5 +207,7 @@ It is also possible to import Anguish.js as an ES6 module, in which it will not 
 ``` js
 import { mount } from "https://esm.sh/anguishjs";
 
-const unmount = mount(document.getElementById("root")); // Calling unmount will stop all directives from running
+mount(document.getElementById("root"));
 ```
+
+For large pages, this can also be more efficient if only a small part of it uses Anguish.

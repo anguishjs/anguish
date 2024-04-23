@@ -1,6 +1,5 @@
-import { Effect, effect as _effect, enqueue, nextTick, observedNodes, reactive } from "./reactivity";
-
-let effect = _effect;
+import { Effect, effect, effectTree, enqueue, nextTick, observedNodes, reactive } from "./reactivity";
+import { classOf, object } from "./utils";
 
 export const mount = (root: Element = document.body) => {
   new MutationObserver((muts) =>
@@ -10,7 +9,7 @@ export const mount = (root: Element = document.body) => {
     })
   ).observe(root, { subtree: true, childList: true });
 
-  return context(root, { $refs: {}, $nextTick: nextTick });
+  walk(root, { $refs: {} });
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
@@ -39,19 +38,19 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
     const class_ = el.className;
     effect(() => {
       let value = get();
-      if (typeof value == "object") {
+      if (classOf(value) == object) {
         if (arg == "style") {
           for (const prop in value) {
-            if (/^--/.test(prop)) {
-              el.style.setProperty(prop, value[prop]);
+            if (/-/.test(prop)) {
+              el[arg].setProperty(prop, value[prop]);
             } else {
-              el.style[prop as any] = value[prop];
+              el[arg][prop as any] = value[prop];
             }
           }
           return;
         }
         if (arg == "class") {
-          value = [...class_ && [class_], ...Object.keys(value).filter(k => value[k])].join(" ");
+          value = [...class_ && [class_], ...object.keys(value).filter(k => value[k])].join(" ");
         }
       }
       // hehe
@@ -71,41 +70,29 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
   html(get, el: HTMLElement) {
     effect(() => el.innerHTML = get());
   },
-  effect: (get) => effect(get),
+  effect: effect,
   init: nextTick,
   show(get, el: HTMLElement) {
     effect(() => el.style.display = get() ? "" : "none");
   },
-  cloak() {},
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
   Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
 
-const renderComponent = (el: any, scope: any, props: any) => {
-  props.$refs = Object.create(scope.$refs);
-  el.$data = scope = reactive(props, scope);
-  props.$unmount = context(el, scope);
-  props.$root = el;
-  return el;
-};
-
-const context = (el: Element, scope: any) => {
-  const effects = new Set<Effect>();
-  const eff = effect;
-  effect = (fn) => {
-    eff(fn);
-    effects.add(fn.e!);
-  };
-  walk(el, scope);
-  effect = eff;
-
-  return () => {
+const renderComponent = (el: any, scope: any, props: any, effects = new Set<Effect>()) => {
+  props.$refs = object.create(scope.$refs);
+  effectTree.push(effects);
+  walk(el, el.$data = scope = reactive(props, scope));
+  effectTree.pop();
+  props.$unmount = () => {
     el.remove();
     // enqueue halted effects so they can remove themselves from deps
     effects.forEach(eff => (eff.h = true, enqueue(eff)));
     effects.clear();
   };
+  props.$root = el;
+  return el;
 };
 
 const walk = (el: Element, scope: any) => {

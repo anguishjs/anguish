@@ -1,9 +1,9 @@
+import { classOf, object, reflect, setProperty } from "./utils";
+
 export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
-type Callback = { (): void; e?: Effect };
 
 export const observedNodes = new Map<Node, Set<Effect>>();
 
-const classOf = (obj: any) => obj?.constructor;
 const proxy = (
   obj: any,
   get: (t: any, k: string) => any,
@@ -12,7 +12,7 @@ const proxy = (
 ) => new Proxy(obj, { get, set, has });
 
 const dependOn = (deps: Set<Effect>, value: any) => {
-  if (classOf(value) == Object || classOf(value) == Array) {
+  if (classOf(value) == object || classOf(value) == Array) {
     value = proxy(
       value,
       (obj, k) => read(deps, obj, k, value),
@@ -26,13 +26,12 @@ const dependOn = (deps: Set<Effect>, value: any) => {
 
 const read = (deps: Set<Effect>, target: any, key: keyof any, recv: any) => {
   if (deps) running?.d.add(deps.add(running));
-  return Reflect.get(target, key, recv);
+  return reflect.get(target, key, recv);
 };
 
 const write = (deps: Set<Effect>, target: any, key: keyof any, value: any, recv: any) => {
   deps.forEach(enqueue);
-  value = dependOn(deps, value);
-  return Reflect.set(target, key, value, recv);
+  return setProperty(target, key, dependOn(deps, value), recv);
 };
 
 const queue = new Set<Effect>();
@@ -49,23 +48,24 @@ export const nextTick = (fn: () => void) => queueMicrotask(fn);
 
 export const reactive = (scope: any, parent: any) => {
   const deps: Record<keyof any, Set<Effect>> = {};
-  const desc = Object.getOwnPropertyDescriptors(scope);
+  const desc = object.getOwnPropertyDescriptors(scope);
   for (const key in desc) {
-    if ("value" in desc[key]) {
-      Reflect.set(scope, key, dependOn(deps[key] = new Set(), scope[key]));
+    if (desc[key].writable) {
+      setProperty(scope, key, dependOn(deps[key] = new Set(), scope[key]));
     }
   }
 
   return scope = proxy(
     scope,
     (obj, k) => k in obj ? read(deps[k], obj, k, scope) : parent[k],
-    (obj, k, v) => k in obj ? write(deps[k], obj, k, v, scope) : (parent[k] = v, true),
+    (obj, k, v) => k in obj ? write(deps[k], obj, k, v, scope) : setProperty(parent, k, v),
     (obj, k) => k in obj || k in parent,
   );
 };
 
 let running: Effect;
-export const effect = (fn: Callback) => {
+export const effectTree = <Set<Effect>[]> [];
+export const effect = (fn: () => void) => {
   const execute: Effect = () => {
     execute.d.forEach(d => d.delete(execute));
     execute.d.clear();
@@ -79,6 +79,7 @@ export const effect = (fn: Callback) => {
     }
   };
 
+  effectTree.forEach(t => t.add(execute));
   execute.d = new Set();
-  enqueue(fn.e = execute);
+  enqueue(execute);
 };
