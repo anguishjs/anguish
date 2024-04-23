@@ -2,6 +2,8 @@ import { build, BuildOptions, context } from "esbuild";
 import { readFileSync, writeFileSync } from "fs";
 import { minify, MinifyOptions } from "uglify-js";
 
+writeFileSync("dist/anguish.d.ts", "export const mount: (root?: Element) => void;\n");
+
 const watch = process.argv.includes("--watch");
 
 const options = <BuildOptions> {
