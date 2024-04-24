@@ -1,10 +1,12 @@
 {
   "name": "anguishjs",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
-    "dist"
+    "dist/anguish.js",
+    "dist/anguish.mjs",
+    "dist/anguish.d.ts"
   ],
   "browser": "./dist/anguish.js",
   "module": "./dist/anguish.mjs",
