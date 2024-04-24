@@ -44,7 +44,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
             if (/-/.test(prop)) {
               el[arg].setProperty(prop, value[prop]);
             } else {
-              el[arg][prop as any] = value[prop];
+              el[arg][<any> prop] = value[prop];
             }
           }
           return;
@@ -71,7 +71,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
     effect(() => el.innerHTML = get());
   },
   effect: effect,
-  init: nextTick,
+  init: get => nextTick(get),
   show(get, el: HTMLElement) {
     effect(() => el.style.display = get() ? "" : "none");
   },

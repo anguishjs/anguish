@@ -38,13 +38,21 @@ const queue = new Set<Effect>();
 export const enqueue = (eff: Effect) => {
   if (!queue.size) {
     nextTick(() => {
-      queue.forEach(eff => eff());
+      queue.forEach(eff => {
+        eff.d.forEach(d => d.delete(eff));
+        eff.d.clear();
+        if (eff.h) return;
+        running = eff;
+        eff();
+      });
       queue.clear();
+      // nb: nested effects are impossible
+      running = null;
     });
   }
   queue.add(eff);
 };
-export const nextTick = (fn: () => void) => queueMicrotask(fn);
+export const nextTick = queueMicrotask;
 
 export const reactive = (scope: any, parent: any) => {
   const deps: Record<keyof any, Set<Effect>> = {};
@@ -63,23 +71,10 @@ export const reactive = (scope: any, parent: any) => {
   );
 };
 
-let running: Effect;
+let running: Effect | null;
 export const effectTree = <Set<Effect>[]> [];
 export const effect = (fn: () => void) => {
-  const execute: Effect = () => {
-    execute.d.forEach(d => d.delete(execute));
-    execute.d.clear();
-    if (execute.h) return;
-    const lastRunning = running;
-    running = execute;
-    try {
-      fn();
-    } finally {
-      running = lastRunning;
-    }
-  };
-
-  effectTree.forEach(t => t.add(execute));
-  execute.d = new Set();
-  enqueue(execute);
+  effectTree.forEach(t => t.add(<any> fn));
+  (<any> fn).d = new Set();
+  enqueue(<any> fn);
 };
