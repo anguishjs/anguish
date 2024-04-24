@@ -78,7 +78,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
-  Function("$data", "$el", `with($data)return ${expr}`).bind(null, scope, el);
+  Function("$data", "$el", `with($el)with($data)return ${expr}`).bind(null, scope, el);
 
 const renderComponent = (el: any, scope: any, props: any, effects = new Set<Effect>()) => {
   props.$refs = object.create(scope.$refs);

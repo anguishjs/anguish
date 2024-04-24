@@ -1,213 +1,79 @@
 # Anguish.js
 
-The Regressive JavaScript Framework.
-
-## What?
-
-This is a proof of concept for a markup-only framework like [Alpine.js](https://alpinejs.dev/) or
-[petite-vue](https://github.com/vuejs/petite-vue). It aims for an even smaller bundle size, being currently at ~2kb (1kb
-gzipped!) with most of the core implemented.
-
-## Usage
-
-Anguish.js does not require any compilation:
+Anguish is a **2.4kB** (**1.2kB** gzipped, fyi) reactive framework, similar to Vue and Alpine. No VDOMs, and no
+compilation needed!
 
 ``` html
 <script src="//unpkg.com/anguishjs" defer></script>
 
 <div x-data="{ count: 0 }">
-  <div x-text="count"></div>
   <button @click="count++">Click me!</button>
+  <span x-text="count"></span>
 </div>
 ```
 
-- `x-data` defines data for the component…
+- `x-data` defines the component’s data…
+- `@click` updates `count` every click…
+- `x-text` sets the `span`’s text…
 
-  Variables will be available within the element, and scopes can be nested.
+Easy as! Just add the script tag in your `<head>`, and you can use components anywhere in the markup.
 
-- `x-text` sets the inner text of the element…
+## Features
 
-  By default, everything is reactive: the text will be re-evaluated every time `count` changes.
+- 12 directives implemented: `x-data`, `x-name`, `x-text`, `x-html`, `x-show`, `x-bind`/`:bind`, `x-prop`/`.prop`,
+  `x-on`/`@event`, `x-model`, `x-ref`, `x-init` & `x-effect`
 
-- `@click` listens to click events…
+## Using components
 
-  Likewise, whenever the event is fired, `count` is increased by one.
+As shown, `x-data` creates an inline component with the given scope. It’ll be rendered exactly where it is (rendering is
+a bit misleading, everything is done in-place), and you can nest it as many times as you'd like.
 
-Easy as!
+It's also not necessary to use an object literal, if things get too clumsy, you can move your data to a script:
 
-## Directives and properties
-
-As you’ve learned, special attributes—called directives—are used for defining our components. Let’s see a couple more…
-
-### `x-data`, `x-name` and components
-
-`x-data` defines the reactive data for a component. Each of the object’s keys will be available in the component’s
-elements as variables. This object can contain any type of data, and nested objects and arrays will also be reactive.
-
-You do not need to use an object literal, if things get too big, you might want to put it in a script:
-
-``` html
+```html
 <script>
-function myComponent() {
-  return {
-    size: 36,
-    topText: "Top text",
-    bottomText: "Bottom text",
-  };
-}
+const myApp = () => ({
+  size: 36,
+  topText: "Top text",
+  bottomText: "Bottom text",
+});
 </script>
 
-<div x-data="myComponent()">...</div>
+<main x-data="myApp()">...</main>
 ```
 
-Nesting data works pretty naturally:
+There are no limitations on which types can be used, and you can even have functions and getters:
 
-``` html
-<div x-data="{ foo: 'bar' }">
-  <div x-data="{ foo: 'nested' }">
-    <div x-text="foo"><!-- 'nested' --></div>
-  </div>
-  <div x-text="foo"><!-- 'bar' --></div>
+```html
+<div x-data="{
+  count: 0,
+  increment() {
+    this.count++
+  },
+  get square() {
+    return this.count ** 2
+  },
+}">
+  ...
 </div>
 ```
 
-### `x-text` and `x-html`
-
-`x-text` and `x-html` set the `textContent` and `innerHTML` of an element, respectively:
-
-``` html
-<div x-data="{ text: '<b>Boo!</b>' }">
-  <span x-text="text"></span> <!-- This will say "<b>Boo!</b>" -->
-
-  <span x-html="text"></span> <!-- This will say "Boo!" Scary.. -->
-</div>
-```
-
-### `x-show`
-
-`x-show` hides an element based on it’s value:
+Anguish is purely DOM-based. As such, you might find it weird that you don’t have something like an `x-for`, however,
+components render to simple elements which you can use!
 
 ``` html
-<div x-data="{ open: false }">
-  <button @click="open = !open">Open</button>
-  <div x-show="open">
-    Hello!
-  </div>
-</div>
+<!-- this is a component! -->
+<template x-name="item">
+  <li><span x-text="title"></span></li>
+</template>
+
+<input @change="$refs.list.append(item({ title: value }))" placeholder="Add an item...">
+<ul x-ref="list"></ul>
 ```
 
-Since directives are completely removed when everything is rendered, you can use this to hide elements which shouldnt
-show up initially:
+Anguish also features DOM reactivity – code that uses elements inside `$refs` will automatically update when components
+are added inside it. You can access the component’s data through the `$data` property, which contains everything in it’s
+scope.
 
-``` html
-<style>[x-show] { display: none; }</style>
-```
-
-### `$el` and `$root`
-
-`$el` and `$root` are special variables usable in directives. `$el` refers to the current element, and `$root` refers to
-the component’s root (the nearest `x-data`).
-
-### `x-bind`, `x-prop` and attributes
-
-`x-bind:attr` and it’s shorthand `:attr` can be used to set attributes to the value of an expression:
-
-``` html
-<img x-bind:src="'/some/path/' + myfile">
-<!-- or... -->
-<img :src="myurl">
-<!-- the expression may also be omitted for an attribute of same name -->
-<img :src>
-```
-
-classes and styles can also be objects:
-
-``` html
-<div class="box" :class="{ warning: true }"></div>
-<!-- renders -->
-<div class="box warning"></div>
-
-<div :style="{ fontSize: size + 'px' }"></div>
-<!-- renders -->
-<div style="font-size: 36px"></div>
-```
-
-`x-prop:prop` (abbreviated `.prop`) is similar to `x-bind`, but instead of setting a DOM attribute, it’ll set a property
-in the actual object:
-
-``` html
-<div .inner-text="'you should probably use x-text!'"></div>
-```
-
-Since HTML attributes are case-insensitive, kebab-case attributes will be automatically converted to camelCase:
-
-``` html
-<svg :view-box="..."></svg>
-<!-- renders -->
-<svg viewBox="..."></svg>
-```
-
-### `x-on` and events
-
-`x-on:event`, or it’s shorthand `@event` can be used to listen for DOM events on the current element:
-
-``` html
-<button @click="alert('Hi there!')">Click me</button>
-```
-
-### `x-model` and inputs
-
-`x-model` can be used as a shorthand for binding to an input’s value, and also listening to changes:
-
-``` html
-<div x-data="{ text: 'Hello!' }">
-  <input x-model="text">
-  <!-- This div will change to what you input -->
-  <div x-text="text"></div>
-</div>
-```
-
-### `x-ref` and `$refs`
-
-Refs work very much like element IDs, except that they are bound to the component’s scope. This is particularly useful
-to avoid name conflicts when using a template system for your HTMl.
-
-``` html
-<!-- Hide the ugly file input! -->
-<input x-ref="file" type="file" hidden>
-<button @click="$refs.file.click()">Choose file</button>
-```
-
-### `x-init`
-
-`x-init` can be used to run a chunk of code after the element has been mounted:
-
-``` html
-<div x-init="fetch('...').then(...)"></div>
-```
-
-### `x-effect`
-
-`x-effect` defines reactive statements:
-
-``` html
-<div x-data="{ count: 0 }">
-  <div x-effect="console.log('count is', count)"></div>
-  <button @click="count++">++</button>
-</div>
-```
-
-`effect` is the basis of most directives. For example, one might implement `x-text` by using
-`x-effect="$el.textContent = value"`
-
-## Manual initialization
-
-It is also possible to import Anguish.js as an ES6 module, in which it will not automatically mount itself to the body.
-
-``` js
-import { mount } from "https://esm.sh/anguishjs";
-
-mount(document.getElementById("root"));
-```
-
-For large pages, this can also be more efficient if only a small part of it uses Anguish.
+Note that removing an element will not unmount the component. For that, `$unmount()` is available in the component’s
+scope.
