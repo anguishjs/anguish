@@ -8,6 +8,7 @@
   ],
   "browser": "./dist/anguish.js",
   "module": "./dist/anguish.mjs",
+  "types": "./dist/anguish.d.ts",
   "scripts": {
     "build": "tsx build.ts",
     "prepublish": "pnpm build"
