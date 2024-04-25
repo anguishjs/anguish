@@ -59,7 +59,7 @@ There are no limitations on which types can be used, and you can even have funct
 ```
 
 Anguish is purely DOM-based. As such, you might find it weird that you don’t have something like an `x-for`, however,
-components render to simple elements which you can use!
+named components render to simple elements which you can use!
 
 ``` html
 <!-- this is a component! -->
@@ -70,6 +70,8 @@ components render to simple elements which you can use!
 <input @change="$refs.list.append(item({ title: value }))" placeholder="Add an item...">
 <ul x-ref="list"></ul>
 ```
+
+Adding `x-name` to a `<template>` tag exposes a function with it's name.
 
 Anguish also features DOM reactivity – code that uses elements inside `$refs` will automatically update when components
 are added inside it. You can access the component’s data through the `$data` property, which contains everything in it’s

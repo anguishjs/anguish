@@ -1,34 +1,27 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
   <script src="../src/index.ts" type="module" defer></script>
-  <script>
-    const todoApp = () => ({
-      addItem(title) {
-        if (!title) return;
-        this.$refs.todos.append(item({ title, completed: false }));
-      },
-      get itemsLeft() {
-        return Array.from(this.$refs.todos.children)
-          .filter((el) => !el.$data.completed)
-          .length;
-      },
-    });
-  </script>
 
-  <body x-data="todoApp()">
+  <body x-data="{
+    addItem(title) {
+      if (!title) return
+      this.$refs.todos.append(item({ title, completed: false }))
+    },
+    get itemsLeft() {
+      return [...this.$refs.todos.children]
+        .filter(e => !e.$data.completed)
+        .length
+    },
+  }">
     <h1>todos</h1>
 
-    <input
-      type="text"
-      autofocus
-      @change="addItem($el.value.trim()); $el.value = ''"
-    />
+    <input autofocus @change="addItem(value.trim()); value = ''">
 
     <ul x-ref="todos">
       <template x-name="item">
         <li :class="{ completed }">
-          <input type="checkbox" x-model="completed" />
-          <input type="text" x-model="title" />
+          <input type="checkbox" x-model="completed">
+          <input type="text" x-model="title">
           <button @click="$unmount()">x</button>
         </li>
       </template>
