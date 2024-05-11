@@ -2,9 +2,14 @@
 <html lang="en">
   <script src="src/index.ts" type="module" defer></script>
   <body>
-    <div x-data="{ count: 0 }">
+    <div x-data="{
+      count: 0,
+      increment() {
+        count++
+      },
+    }">
       <span x-text="count"></span>
-      <button @click="count++">++</button>
+      <button @click="increment">++</button>
     </div>
   </body>
 </html>

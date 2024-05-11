@@ -5,10 +5,10 @@
   <body x-data="{
     addItem(title) {
       if (!title) return
-      this.$refs.todos.append(item({ title, completed: false }))
+      $refs.todos.append(item({ title, completed: false }))
     },
     get itemsLeft() {
-      return [...this.$refs.todos.children]
+      return [...$refs.todos.children]
         .filter(e => !e.$data.completed)
         .length
     },
@@ -22,7 +22,7 @@
         <li :class="{ completed }">
           <input type="checkbox" x-model="completed">
           <input type="text" x-model="title">
-          <button @click="$unmount()">x</button>
+          <button @click="$unmount">x</button>
         </li>
       </template>
     </ul>

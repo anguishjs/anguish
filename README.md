@@ -48,10 +48,10 @@ There are no limitations on which types can be used, and you can even have funct
 <div x-data="{
   count: 0,
   increment() {
-    this.count++
+    count++
   },
   get square() {
-    return this.count ** 2
+    return count ** 2
   },
 }">
   ...

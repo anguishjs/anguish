@@ -1,5 +1,5 @@
-import { Effect, effect, effectTree, enqueue, nextTick, observedNodes, reactive } from "./reactivity";
-import { classOf, object } from "./utils";
+import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes } from "./reactivity";
+import { classOf, createObject, object } from "./utils";
 
 export const mount = (root: Element = document.body) => {
   new MutationObserver((muts) =>
@@ -20,7 +20,7 @@ const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?
     scope.$refs[expr] = el;
   },
   on(expr, scope, el, arg) {
-    listen(el, arg!, compile(`$event=>{${expr}}`, scope, el)());
+    listen(el, arg!, compile(/^[\w$_.]+$/.test(expr) ? expr : `$event=>{${expr}}`, scope, el)());
   },
   model(expr, scope, el: HTMLInputElement) {
     const attr = el.type == "checkbox"
@@ -80,18 +80,17 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
 const compile = (expr: string, scope: any, el: Element): () => any =>
   Function("$data", "$el", `with($el)with($data)return ${expr}`).bind(null, scope, el);
 
-const renderComponent = (el: any, scope: any, props: any, effects = new Set<Effect>()) => {
-  props.$refs = object.create(scope.$refs);
+const renderComponent = (el: any, scope: any, effects = new Set<Effect>()) => {
   effectTree.push(effects);
-  walk(el, el.$data = scope = reactive(props, scope));
+  walk(el, el.$data = scope);
   effectTree.pop();
-  props.$unmount = () => {
+  scope.$unmount = () => {
     el.remove();
     // enqueue halted effects so they can remove themselves from deps
     effects.forEach(eff => (eff.h = true, enqueue(eff)));
     effects.clear();
   };
-  props.$root = el;
+  scope.$root = el;
   return el;
 };
 
@@ -105,13 +104,16 @@ const walk = (el: Element, scope: any) => {
 
   if (directive("x-name")) {
     el.remove();
-    (<any> window)[expr!] = (props = {}) =>
-      renderComponent((<HTMLTemplateElement> el).content.children[0].cloneNode(true), scope, props);
+    (<any> window)[expr!] = (props = {}) => {
+      initScope(scope = createObject(scope), props);
+      return renderComponent((<HTMLTemplateElement> el).content.children[0].cloneNode(true), scope);
+    };
     return;
   }
 
   if (directive("x-data")) {
-    renderComponent(el, scope, compile(expr!, scope, el)());
+    initScope(scope = createObject(scope), compile(expr!, scope, el)());
+    renderComponent(el, scope);
     return;
   }
 
