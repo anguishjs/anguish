@@ -67,7 +67,7 @@ named components render to simple elements which you can use!
   <li><span x-text="title"></span></li>
 </template>
 
-<input @change="$refs.list.append(item({ title: value }))" placeholder="Add an item...">
+<input @change="list.append(item({ title: value }))" placeholder="Add an item...">
 <ul x-ref="list"></ul>
 ```
 

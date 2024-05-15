@@ -1,4 +1,4 @@
-import { classOf, createObject, object, reflect, setProperty } from "./utils";
+import { classOf, defineProperty, object, reflect } from "./utils";
 
 export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
 
@@ -7,24 +7,15 @@ export const observedNodes = new Map<Node, Set<Effect>>();
 const dependOn = (deps: Set<Effect>, value: any) => {
   if (classOf(value) == object || classOf(value) == Array) {
     value = new Proxy(value, {
-      get: (obj, k) => read(deps, obj, k, value),
-      set: (obj, k, v) => write(deps, obj, k, v, value),
+      get: (obj, k) => (read(deps), reflect.get(obj, k, value)),
+      set: (obj, k, v) => (write(deps), reflect.set(obj, k, v, value)),
     });
-  } else if (value instanceof Node) {
-    observedNodes.set(value, deps);
   }
   return value;
 };
 
-const read = (deps: Set<Effect>, target: any, key: keyof any, recv?: any) => {
-  if (deps) running?.d.add(deps.add(running));
-  return reflect.get(target, key, recv);
-};
-
-const write = (deps: Set<Effect>, target: any, key: keyof any, value: any, recv?: any) => {
-  deps.forEach(enqueue);
-  return setProperty(target, key, dependOn(deps, value), recv);
-};
+export const read = (deps: Set<Effect>) => deps && running?.d.add(deps.add(running));
+export const write = (deps: Set<Effect>) => deps.forEach(enqueue);
 
 const queue = new Set<Effect>();
 export const enqueue = (eff: Effect) => {
@@ -47,18 +38,20 @@ export const enqueue = (eff: Effect) => {
 export const nextTick = queueMicrotask;
 
 export const initScope = (scope: any, props: any) => {
-  props.$refs = createObject(scope.$refs);
   const desc = object.getOwnPropertyDescriptors(props);
   for (const key in desc) {
     const deps = new Set<Effect>();
     if (desc[key].writable) {
       props[key] = dependOn(deps, props[key]);
     }
-    object.defineProperty(scope, key, {
-      get: () => read(deps, props, key, props),
-      set: value => write(deps, props, key, value, props),
+    defineProperty(scope, key, {
+      get: () => (read(deps), props[key]),
+      set: value => {
+        write(deps), props[key] = value;
+      },
     });
   }
+  props.setup && nextTick(props.setup);
 };
 
 let running: Effect | null;

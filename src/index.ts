@@ -1,15 +1,22 @@
-import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes } from "./reactivity";
-import { classOf, createObject, object } from "./utils";
+import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes, read } from "./reactivity";
+import { classOf, createObject, defineProperty, object } from "./utils";
 
 export const mount = (root: Element = document.body) => {
   new MutationObserver((muts) =>
-    muts.forEach((mut) => {
+    muts.forEach(mut => {
       mut.removedNodes.forEach(n => observedNodes.delete(n));
       observedNodes.forEach((deps, node) => node.contains(mut.target) && deps.forEach(enqueue));
     })
   ).observe(root, { subtree: true, childList: true });
 
-  walk(root, { $refs: {} });
+  walk(root, {
+    effect,
+    $unmount() {
+      this.$root.remove();
+      this[EFFECTS].forEach((e: Effect) => (e.h = true, enqueue(e)));
+      this[EFFECTS].clear();
+    },
+  });
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
@@ -17,10 +24,14 @@ const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEvent
 
 const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?: string) => void> = {
   ref(expr, scope, el) {
-    scope.$refs[expr] = el;
+    const deps = new Set<Effect>();
+    observedNodes.set(el, deps);
+    defineProperty(scope, expr, {
+      get: () => (read(deps), el),
+    });
   },
   on(expr, scope, el, arg) {
-    listen(el, arg!, compile(/^[\w$_.]+$/.test(expr) ? expr : `$event=>{${expr}}`, scope, el)());
+    listen(el, arg!, compile(`$event=>{${/^[\w$_.]+$/.test(expr) ? expr + "($event)" : expr}}`, scope, el)());
   },
   model(expr, scope, el: HTMLInputElement) {
     const attr = el.type == "checkbox"
@@ -78,18 +89,13 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
-  Function("$data", "$el", `with($el)with($data)return ${expr}`).bind(null, scope, el);
+  Function("$data", "$el", `with($el)with($data)return(${expr})`).bind(null, scope, el);
 
-const renderComponent = (el: any, scope: any, effects = new Set<Effect>()) => {
-  effectTree.push(effects);
+const EFFECTS = Symbol();
+const renderComponent = (el: any, scope: any) => {
+  effectTree.push(scope[EFFECTS] = new Set<Effect>());
   walk(el, el.$data = scope);
   effectTree.pop();
-  scope.$unmount = () => {
-    el.remove();
-    // enqueue halted effects so they can remove themselves from deps
-    effects.forEach(eff => (eff.h = true, enqueue(eff)));
-    effects.clear();
-  };
   scope.$root = el;
   return el;
 };

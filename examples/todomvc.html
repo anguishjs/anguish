@@ -2,31 +2,47 @@
 <html lang="en">
   <script src="../src/index.ts" type="module" defer></script>
 
-  <body x-data="{
-    addItem(title) {
-      if (!title) return
-      $refs.todos.append(item({ title, completed: false }))
-    },
-    get itemsLeft() {
-      return [...$refs.todos.children]
-        .filter(e => !e.$data.completed)
-        .length
-    },
-  }">
-    <h1>todos</h1>
+  <body>
+    <section x-data="{
+      addItem(title) {
+        if (!title) return
+        todos.append(item({ title, completed: false }))
+      },
+      toggleAll() {
+        for (const e of todos.children) {
+          e.$data.completed = true
+        }
+      },
+      get itemsLeft() {
+        return [...todos.children]
+          .filter(e => !e.$data.completed)
+          .length
+      },
+    }">
+      <header>
+        <h1>todos</h1>
+        <input autofocus placeholder="What needs to be done?"
+          @change="addItem(value.trim()), value = ''">
+      </header>
 
-    <input autofocus @change="addItem(value.trim()); value = ''">
+      <main>
+        <label>
+          <input type="checkbox" @change="toggleAll" .checked="itemsLeft === 0" .disabled="!todos.children.length">
+          Mark all as complete
+        </label>
 
-    <ul x-ref="todos">
+        <ul x-ref="todos"></ul>
+      </main>
+
+      <footer x-text="`${itemsLeft} ${itemsLeft === 1 ? 'item' : 'items'} left`"></footer>
+
       <template x-name="item">
         <li :class="{ completed }">
-          <input type="checkbox" x-model="completed">
-          <input type="text" x-model="title">
+          <input type="checkbox" x-model="completed" />
+          <input type="text" x-model="title" />
           <button @click="$unmount">x</button>
         </li>
       </template>
-    </ul>
-
-    <footer x-text="`${itemsLeft} items left`"></footer>
+    </section>
   </body>
 </html>
