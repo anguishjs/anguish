@@ -1,8 +1,9 @@
 import { build, BuildOptions, context } from "esbuild";
-import { readFileSync, writeFileSync } from "fs";
+import { mkdir, readFile, writeFile } from "fs/promises";
 import { minify, MinifyOptions } from "uglify-js";
 
-writeFileSync("dist/anguish.d.ts", "export const mount: (root?: Element) => void;\n");
+await mkdir("dist").catch(() => {});
+await writeFile("dist/anguish.d.ts", "export const mount: (root?: Element) => void;\n");
 
 const watch = process.argv.includes("--watch");
 
@@ -22,8 +23,8 @@ const options = <BuildOptions> {
         },
       };
 
-      build.onEnd(() => {
-        writeFileSync(path, minify(readFileSync(path, "utf8"), options).code);
+      build.onEnd(async () => {
+        await writeFile(path, minify(await readFile(path, "utf8"), options).code);
       });
     },
   }],
