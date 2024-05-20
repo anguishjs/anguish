@@ -1,5 +1,5 @@
-import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes, read } from "./reactivity";
-import { classOf, createObject, defineProperty, object } from "./utils";
+import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes, reactiveProp } from "./reactivity";
+import { classOf, consumeSet, createObject, defineProperty, object } from "./utils";
 
 export const mount = (root: Element = document.body) => {
   new MutationObserver((muts) =>
@@ -13,33 +13,25 @@ export const mount = (root: Element = document.body) => {
     effect,
     $unmount() {
       this.$root.remove();
-      this[EFFECTS].forEach((e: Effect) => (e.h = true, enqueue(e)));
-      this[EFFECTS].clear();
+      consumeSet<Effect>(this[EFFECTS], e => (e.h = true, enqueue(e)));
     },
   });
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
-const listen = (el: Element, event: string, fn: (e: any) => void) => el.addEventListener(event, fn);
+const listen = "addEventListener";
 
 const specialDirectives: Record<string, (expr: string, scope: any, el: any, arg?: string) => void> = {
   ref(expr, scope, el) {
-    const deps = new Set<Effect>();
-    observedNodes.set(el, deps);
-    defineProperty(scope, expr, {
-      get: () => (read(deps), el),
-    });
+    defineProperty(scope, expr, reactiveProp(el));
   },
   on(expr, scope, el, arg) {
-    listen(el, arg!, compile(`$event=>{${/^[\w$_.]+$/.test(expr) ? expr + "($event)" : expr}}`, scope, el)());
+    el[listen](arg!, compile(`$event=>{${/^[\w$_.]+$/.test(expr) ? expr + "($event)" : expr}}`, scope, el)());
   },
-  model(expr, scope, el: HTMLInputElement) {
-    const attr = el.type == "checkbox"
-      ? "checked"
-      : "value";
+  model(expr, scope, el) {
+    const attr = el.type == "checkbox" ? "checked" : "value";
 
-    listen(el, "input", () => scope[expr] = el[attr]);
-    // @ts-ignore ???
+    el[listen]("input", () => scope[expr] = el[attr]);
     effect(() => el[attr] = scope[expr]);
   },
 };
@@ -52,7 +44,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
       if (classOf(value) == object) {
         if (arg == "style") {
           for (const prop in value) {
-            if (/-/.test(prop)) {
+            if (prop[0] == "-") {
               el[arg].setProperty(prop, value[prop]);
             } else {
               el[arg][<any> prop] = value[prop];
@@ -89,7 +81,7 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
-  Function("$data", "$el", `with($el)with($data)return(${expr})`).bind(null, scope, el);
+  Function("$data", "$el", `with($el)with($data)return(${expr})`).bind(scope, scope, el);
 
 const EFFECTS = Symbol();
 const renderComponent = (el: any, scope: any) => {
@@ -110,7 +102,7 @@ const walk = (el: Element, scope: any) => {
 
   if (directive("x-name")) {
     el.remove();
-    (<any> window)[expr!] = (props = {}) => {
+    scope[expr!] = (props = {}) => {
       initScope(scope = createObject(scope), props);
       return renderComponent((<HTMLTemplateElement> el).content.children[0].cloneNode(true), scope);
     };
@@ -118,15 +110,16 @@ const walk = (el: Element, scope: any) => {
   }
 
   if (directive("x-data")) {
-    initScope(scope = createObject(scope), compile(expr!, scope, el)());
+    initScope(scope = createObject(scope), compile(expr! ?? "{}", scope, el)());
     renderComponent(el, scope);
     return;
   }
 
   for (const attr of [...el.attributes]) {
     let directive = attr.name;
-    if (!/^(x-|[@:.])/.test(directive)) continue;
+    if (!/^x-|^[@:.]/.test(directive)) continue;
 
+    el.removeAttribute(directive);
     let [name, arg] = kebabToCamel(normalizeDirective(directive)).split(/:(.*)/);
     expr = attr.value || arg;
     if (name in specialDirectives) {
@@ -134,7 +127,6 @@ const walk = (el: Element, scope: any) => {
     } else {
       directives[name](compile(expr, scope, el), el, arg);
     }
-    el.removeAttributeNode(attr);
   }
 
   for (const node of el.children) walk(node, scope);

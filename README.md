@@ -26,11 +26,11 @@ Easy as! Just add the script tag in your `<head>`, and you can use components an
 ## Using components
 
 As shown, `x-data` creates an inline component with the given scope. It’ll be rendered exactly where it is (rendering is
-a bit misleading, everything is done in-place), and you can nest it as many times as you'd like.
+a bit misleading, everything is done in-place), and you can nest it as many times as you’d like.
 
-It's also not necessary to use an object literal, if things get too clumsy, you can move your data to a script:
+It’s also not necessary to use an object literal, if things get too clumsy, you can move your data to a script:
 
-```html
+``` html
 <script>
 const myApp = () => ({
   size: 36,
@@ -44,7 +44,7 @@ const myApp = () => ({
 
 There are no limitations on which types can be used, and you can even have functions and getters:
 
-```html
+``` html
 <div x-data="{
   count: 0,
   increment() {
@@ -71,11 +71,11 @@ named components render to simple elements which you can use!
 <ul x-ref="list"></ul>
 ```
 
-Adding `x-name` to a `<template>` tag exposes a function with it's name.
+Adding `x-name` to a `<template>` tag exposes a function with it’s name.
 
-Anguish also features DOM reactivity – code that uses elements inside `$refs` will automatically update when components
-are added inside it. You can access the component’s data through the `$data` property, which contains everything in it’s
-scope.
+Anguish also features DOM reactivity – code that uses elements from `x-ref`s will automatically update when components
+are added inside it are added inside it. You can access the component’s data through the `$data` property, which
+contains everything in it’s scope.
 
 Note that removing an element will not unmount the component. For that, `$unmount()` is available in the component’s
 scope.

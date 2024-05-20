@@ -1,55 +1,46 @@
-import { classOf, defineProperty, object, reflect } from "./utils";
+import { classOf, consumeSet, defineProperty, object } from "./utils";
 
 export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
 
 export const observedNodes = new Map<Node, Set<Effect>>();
 
-const dependOn = (deps: Set<Effect>, value: any) => {
-  if (classOf(value) == object || classOf(value) == Array) {
-    value = new Proxy(value, {
-      get: (obj, k) => (read(deps), reflect.get(obj, k, value)),
-      set: (obj, k, v) => (write(deps), reflect.set(obj, k, v, value)),
-    });
-  }
-  return value;
-};
-
-export const read = (deps: Set<Effect>) => deps && running?.d.add(deps.add(running));
-export const write = (deps: Set<Effect>) => deps.forEach(enqueue);
+const read = (deps: Set<Effect>) => deps && running?.d.add(deps.add(running));
+const write = (deps: Set<Effect>) => deps.forEach(enqueue);
 
 const queue = new Set<Effect>();
 export const enqueue = (eff: Effect) => {
   if (!queue.size) {
-    nextTick(() => {
-      queue.forEach(eff => {
-        eff.d.forEach(d => d.delete(eff));
-        eff.d.clear();
-        if (eff.h) return;
-        running = eff;
-        eff();
-      });
-      queue.clear();
-      // nb: nested effects are impossible
-      running = null;
-    });
+    nextTick(() =>
+      consumeSet(queue, eff => {
+        consumeSet(eff.d, d => d.delete(eff));
+        if (!eff.h) (running = eff)();
+        running = null;
+      })
+    );
   }
   queue.add(eff);
 };
 export const nextTick = queueMicrotask;
 
+export const reactiveProp = (value?: any, deps = new Set<Effect>()): PropertyDescriptor => {
+  if (classOf(value) == object || classOf(value) == Array) {
+    value = new Proxy(value, {
+      get: (obj, k) => (read(deps), obj[k]),
+      set: (obj, k, v) => (write(deps), obj[k] = v, true),
+    });
+  } else if (value instanceof Node) {
+    observedNodes.set(value, deps);
+  }
+  return {
+    get: () => (read(deps), value),
+    set: x => (write(deps), value = x),
+  };
+};
+
 export const initScope = (scope: any, props: any) => {
   const desc = object.getOwnPropertyDescriptors(props);
   for (const key in desc) {
-    const deps = new Set<Effect>();
-    if (desc[key].writable) {
-      props[key] = dependOn(deps, props[key]);
-    }
-    defineProperty(scope, key, {
-      get: () => (read(deps), props[key]),
-      set: value => {
-        write(deps), props[key] = value;
-      },
-    });
+    defineProperty(scope, key, desc[key].writable ? reactiveProp(props[key]) : desc[key]);
   }
   props.setup && nextTick(props.setup);
 };
