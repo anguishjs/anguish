@@ -1,22 +1,20 @@
 <!doctype html>
 <html lang="en">
-  <script src="../src/index.ts" type="module" defer></script>
+  <script src="../src/index.ts" type="module"></script>
+  <style>[x-show], [x-name] { display: none }</style>
 
   <body>
     <section x-data="{
       addItem(title) {
         if (!title) return
+
         todos.append(item({ title, completed: false }))
       },
       toggleAll() {
-        for (const e of todos.children) {
-          e.$data.completed = true
-        }
+        [...todos.children].forEach(x => x.$data.completed = true)
       },
       get itemsLeft() {
-        return [...todos.children]
-          .filter(e => !e.$data.completed)
-          .length
+        return [...todos.children].filter(x => !x.$data.completed).length
       },
     }">
       <header>
@@ -27,22 +25,20 @@
 
       <main>
         <label>
-          <input type="checkbox" @change="toggleAll" .checked="itemsLeft === 0" .disabled="!todos.children.length">
+          <input type="checkbox" @change="toggleAll" .checked="itemsLeft == 0" .disabled="!todos.children.length">
           Mark all as complete
         </label>
 
-        <ul x-ref="todos"></ul>
+        <ul x-ref="todos">
+          <li x-name="item" :class="{ completed }">
+            <input type="checkbox" x-model="completed">
+            <input x-model="title">
+            <button @click="$unmount" aria-label="Remove">x</button>
+          </li>
+        </ul>
       </main>
 
-      <footer x-text="`${itemsLeft} ${itemsLeft === 1 ? 'item' : 'items'} left`"></footer>
-
-      <template x-name="item">
-        <li :class="{ completed }">
-          <input type="checkbox" x-model="completed" />
-          <input type="text" x-model="title" />
-          <button @click="$unmount">x</button>
-        </li>
-      </template>
+      <footer x-text="`${itemsLeft} ${itemsLeft == 1 ? 'item' : 'items'} left`"></footer>
     </section>
   </body>
 </html>

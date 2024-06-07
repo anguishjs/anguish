@@ -1,6 +1,6 @@
 {
   "name": "anguishjs",
-  "version": "0.4.5",
+  "version": "0.4.6",
   "license": "Apache-2.0",
   "type": "module",
   "files": [
@@ -8,9 +8,11 @@
     "dist/anguish.mjs",
     "dist/anguish.d.ts"
   ],
-  "browser": "./dist/anguish.js",
-  "module": "./dist/anguish.mjs",
-  "types": "./dist/anguish.d.ts",
+  "exports": {
+    "types": "./dist/anguish.d.ts",
+    "import": "./dist/anguish.mjs",
+    "default": "./dist/anguish.js"
+  },
   "scripts": {
     "build": "tsx build.ts",
     "prepublish": "pnpm build"

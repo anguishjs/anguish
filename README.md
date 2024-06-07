@@ -21,7 +21,7 @@ Easy as! Just add the script tag in your `<head>`, and you can use components an
 ## Features
 
 - 12 directives implemented: `x-data`, `x-name`, `x-text`, `x-html`, `x-show`, `x-bind`/`:bind`, `x-prop`/`.prop`,
-  `x-on`/`@event`, `x-model`, `x-ref`, `x-init` & `x-effect`
+  `x-on`/`@event`, `x-model`, `x-ref`, `x-setup` & `x-effect`
 
 ## Using components
 

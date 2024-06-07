@@ -1,21 +1,25 @@
-import { Effect, effect, effectTree, enqueue, initScope, nextTick, observedNodes, reactiveProp } from "./reactivity";
-import { classOf, consumeSet, createObject, defineProperty, object } from "./utils";
+import { Effect, effect, effectTree, enqueue, isRef, nextTick, reactiveProp, ref, unref } from "./reactivity";
+import { classOf, consumeSet, createObject, defineProperty, func, object } from "./utils";
 
-export const mount = (root: Element = document.body) => {
-  new MutationObserver((muts) =>
-    muts.forEach(mut => {
-      mut.removedNodes.forEach(n => observedNodes.delete(n));
-      observedNodes.forEach((deps, node) => node.contains(mut.target) && deps.forEach(enqueue));
-    })
-  ).observe(root, { subtree: true, childList: true });
+const globals = { effect, isRef, ref, unref };
 
-  walk(root, {
-    effect,
-    $unmount() {
-      this.$root.remove();
-      consumeSet<Effect>(this[EFFECTS], e => (e.h = true, enqueue(e)));
-    },
-  });
+export { effect, isRef, ref, unref };
+
+export const mount = (root: HTMLTemplateElement | Element = document.body) => {
+  walk(root, globals);
+};
+
+export const html = (template: TemplateStringsArray, ...data: any[]) => {
+  const props = {} as any;
+  const el = document.createElement("div");
+  el.innerHTML = String.raw(
+    template,
+    ...data.map((x, i) => {
+      props[`_$${i}`] = x;
+      return `_$${i}`;
+    }),
+  );
+  return render(el.children[0], globals, props);
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
@@ -73,24 +77,39 @@ const directives: Record<string, (get: () => any, el: any, arg?: string) => void
   html(get, el: HTMLElement) {
     effect(() => el.innerHTML = get());
   },
-  effect: effect,
-  init: get => nextTick(get),
   show(get, el: HTMLElement) {
     effect(() => el.style.display = get() ? "" : "none");
   },
+  setup: get => nextTick(get),
+  effect: effect,
 };
 
 const compile = (expr: string, scope: any, el: Element): () => any =>
-  Function("$data", "$el", `with($el)with($data)return(${expr})`).bind(scope, scope, el);
+  func("$el", `with($el)with(this)return(${expr})`).bind(scope, el);
 
-const EFFECTS = Symbol();
-const renderComponent = (el: any, scope: any) => {
-  effectTree.push(scope[EFFECTS] = new Set<Effect>());
-  walk(el, el.$data = scope);
+const render = (el: HTMLTemplateElement | Element, scope: any, props: any) => {
+  if (classOf(props) == func) props = props();
+
+  const effects = new Set<Effect>();
+  const desc = object.getOwnPropertyDescriptors(props);
+  for (const key in desc) {
+    defineProperty(scope, key, desc[key].writable ? reactiveProp(props[key]) : desc[key]);
+  }
+
+  effectTree.push(effects);
+  walk(el, (el as any).$data = scope);
   effectTree.pop();
+
+  scope.$unmount = () => {
+    el.remove();
+    consumeSet(effects, e => (e.h = true, enqueue(e)));
+  };
   scope.$root = el;
   return el;
 };
+
+const clone = (el: HTMLTemplateElement | Element) =>
+  <Element> ((<HTMLTemplateElement> el).content?.children[0] ?? el).cloneNode(true);
 
 const walk = (el: Element, scope: any) => {
   let expr: string | null;
@@ -102,16 +121,12 @@ const walk = (el: Element, scope: any) => {
 
   if (directive("x-name")) {
     el.remove();
-    scope[expr!] = (props = {}) => {
-      initScope(scope = createObject(scope), props);
-      return renderComponent((<HTMLTemplateElement> el).content.children[0].cloneNode(true), scope);
-    };
+    scope[expr!] = (props: any) => render(clone(el), createObject(scope), props ?? {});
     return;
   }
 
   if (directive("x-data")) {
-    initScope(scope = createObject(scope), compile(expr! ?? "{}", scope, el)());
-    renderComponent(el, scope);
+    render(el, scope = createObject(scope), compile(expr! || "{}", scope, el)());
     return;
   }
 
@@ -121,7 +136,7 @@ const walk = (el: Element, scope: any) => {
 
     el.removeAttribute(directive);
     let [name, arg] = kebabToCamel(normalizeDirective(directive)).split(/:(.*)/);
-    expr = attr.value || arg;
+    let expr = attr.value || arg;
     if (name in specialDirectives) {
       specialDirectives[name](expr, scope, el, arg);
     } else {

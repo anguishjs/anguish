@@ -1,4 +1,5 @@
 export const classOf = (obj: any) => obj?.constructor;
+export const func: FunctionConstructor = classOf(classOf);
 export const object: ObjectConstructor = classOf({});
 export const createObject = object.create;
 export const defineProperty = object.defineProperty;

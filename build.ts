@@ -3,7 +3,25 @@ import { mkdir, readFile, writeFile } from "fs/promises";
 import { minify, MinifyOptions } from "uglify-js";
 
 await mkdir("dist").catch(() => {});
-await writeFile("dist/anguish.d.ts", "export const mount: (root?: Element) => void;\n");
+await writeFile("dist/anguish.d.ts", `\
+export function mount(root?: Element, data?: any): void;
+export function html(template: TemplateStringsArray, ...values: any[]): Element;
+export function effect(fn: () => void): void;
+
+declare const RefSymbol: unique symbol;
+export interface Ref<T> {
+  value: T;
+  [RefSymbol]: true;
+}
+export type UnwrapRef<T> = T extends Ref<infer V> ? V : T;
+export type MaybeRef<T> = T | Ref<T>;
+
+export function ref<T>(value: T): Ref<UnwrapRef<T>>;
+export function ref<T = any>(): Ref<T | undefined>;
+
+export function isRef<T>(ref: Ref<T> | unknown): ref is Ref<T>;
+export function unref<T>(value: MaybeRef<T>): T;
+`);
 
 const watch = process.argv.includes("--watch");
 
