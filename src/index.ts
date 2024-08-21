@@ -1,5 +1,5 @@
 import { Effect, effect, effectTree, enqueue, isRef, nextTick, reactiveProp, ref, unref } from "./reactivity";
-import { classOf, consumeSet, createObject, defineProperty, func, object } from "./utils";
+import { classOf, consumeSet, createObject, defineProperty, descriptors, func, object } from "./utils";
 
 const globals = { effect, isRef, ref, unref };
 
@@ -19,7 +19,7 @@ export const html = (template: TemplateStringsArray, ...data: any[]) => {
       return `_$${i}`;
     }),
   );
-  return render(el.children[0], globals, props);
+  return render(el.children[0], createObject(globals), props);
 };
 
 const kebabToCamel = (str: string) => str.replace(/-./, c => c[1].toUpperCase());
@@ -91,7 +91,7 @@ const render = (el: HTMLTemplateElement | Element, scope: any, props: any) => {
   if (classOf(props) == func) props = props();
 
   const effects = new Set<Effect>();
-  const desc = object.getOwnPropertyDescriptors(props);
+  const desc = descriptors(props);
   for (const key in desc) {
     defineProperty(scope, key, desc[key].writable ? reactiveProp(props[key]) : desc[key]);
   }

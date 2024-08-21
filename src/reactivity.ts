@@ -1,4 +1,4 @@
-import { classOf, consumeSet, defineProperty, object } from "./utils";
+import { classOf, consumeSet, defineProperty, descriptors, object } from "./utils";
 
 export type Effect = { (): void; d: Set<Set<Effect>>; h?: boolean };
 
@@ -61,7 +61,7 @@ export const reactive = (value: any, deps: Set<Effect>): any => {
   return value;
 };
 export const reactiveProp = (value?: any, deps = new Set<Effect>()): PropertyDescriptor => {
-  if (isRef(value)) return object.getOwnPropertyDescriptor(value, "value")!;
+  if (isRef(value)) return descriptors(value).value;
   value = reactive(value, deps);
   return {
     get: () => (read(deps), value),
