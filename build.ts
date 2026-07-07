@@ -4,7 +4,7 @@ import { minify, MinifyOptions } from "uglify-js";
 
 await mkdir("dist").catch(() => {});
 await writeFile("dist/anguish.d.ts", `\
-export function mount(root?: Element, data?: any): void;
+export function mount(root?: Element): void;
 export function html(template: TemplateStringsArray, ...values: any[]): Element;
 export function effect(fn: () => void): void;
 
@@ -25,7 +25,7 @@ export function unref<T>(value: MaybeRef<T>): T;
 
 const watch = process.argv.includes("--watch");
 
-const options = <BuildOptions> {
+const options: BuildOptions = {
   entryPoints: ["src/index.ts"],
   bundle: true,
   minify: true,
@@ -48,7 +48,7 @@ const options = <BuildOptions> {
   }],
 };
 
-const targets = <BuildOptions[]> [
+const targets: BuildOptions[] = [
   { outfile: "dist/anguish.js", define: { BUILD: "'iife'" } },
   { outfile: "dist/anguish.mjs", define: { BUILD: "'esm'" }, format: "esm" },
 ];

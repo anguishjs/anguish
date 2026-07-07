@@ -15,17 +15,14 @@
     "default": "./dist/anguish.js"
   },
   "scripts": {
-    "build": "tsx build.ts",
+    "build": "node build.ts",
     "prepublish": "pnpm build"
   },
   "devDependencies": {
-    "@types/node": "^20.12.7",
+    "@types/node": "^26.1.0",
     "@types/uglify-js": "^3.17.5",
-    "esbuild": "^0.20.2",
-    "tsx": "^4.7.2",
-    "uglify-js": "^3.17.4"
-  },
-  "dependencies": {
-    "vite": "^5.2.8"
+    "esbuild": "^0.28.1",
+    "uglify-js": "^3.19.3",
+    "vite": "^8.1.3"
   }
 }
