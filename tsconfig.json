@@ -3,6 +3,7 @@
   "compilerOptions": {
     "strict": true,
     "noEmit": true,
+    "verbatimModuleSyntax": true,
     "target": "esnext",
     "module": "esnext",
     "moduleResolution": "bundler",

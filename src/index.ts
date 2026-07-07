@@ -1,4 +1,4 @@
-import { Effect, effect, effectTree, enqueue, isRef, nextTick, reactiveProp, ref, unref } from "./reactivity";
+import { type Effect, effect, effectTree, enqueue, isRef, nextTick, reactiveProp, ref, unref } from "./reactivity";
 import { classOf, consumeSet, createObject, defineProperty, descriptors, func, object } from "./utils";
 
 const globals = { effect, isRef, ref, unref };

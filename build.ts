@@ -1,6 +1,6 @@
-import { build, BuildOptions, context } from "esbuild";
+import { build, type BuildOptions, context } from "esbuild";
 import { mkdir, readFile, writeFile } from "fs/promises";
-import { minify, MinifyOptions } from "uglify-js";
+import { minify, type MinifyOptions } from "uglify-js";
 
 await mkdir("dist").catch(() => {});
 await writeFile("dist/anguish.d.ts", `\
